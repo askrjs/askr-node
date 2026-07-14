@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+.nuxt/
+.vite-hooks/
+.svelte-kit/
+.temp/
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Test and coverage
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+.vitest-attachments/
+__screenshots__/
+bench-results/
+bench-results.txt
+test-output.txt
+test-results.txt
+bench-profiles/
+inventory.md
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Caches
+.cache/
+.parcel-cache/
+.npm/
+.eslintcache
+.stylelintcache
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

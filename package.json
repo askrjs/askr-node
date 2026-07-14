@@ -1,0 +1,22 @@
+{
+  "name": "@askrjs/node",
+  "version": "0.0.1",
+  "description": "Node http adapter for @askrjs/server",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist/**/*.js", "dist/**/*.d.ts"],
+  "scripts": {
+    "build": "vp pack",
+    "fmt": "vp fmt .",
+    "lint": "vp lint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vp test run",
+    "check": "npm run lint && npm run typecheck && npm test",
+    "prepublishOnly": "npm run check && npm run build"
+  },
+  "dependencies": { "@askrjs/server": ">=0.0.1 <0.1.0" },
+  "devDependencies": { "@types/node": "^26.0.0", "typescript": "^6.0.0", "vitest": "^4.0.0", "vite-plus": "^0.2.4" },
+  "engines": { "node": ">=18" }
+}
