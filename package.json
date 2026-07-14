@@ -2,6 +2,7 @@
   "name": "@askrjs/node",
   "version": "0.0.1",
   "description": "Node http adapter for @askrjs/server",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
