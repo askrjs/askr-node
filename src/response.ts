@@ -1,21 +1,20 @@
-import type { ServerResponse } from 'node:http';
+import type { ServerResponse } from "node:http";
 
 function writeHeaders(response: Response, target: ServerResponse): void {
-  const cookies = typeof response.headers.getSetCookie === 'function'
-    ? response.headers.getSetCookie()
-    : [];
+  const cookies =
+    typeof response.headers.getSetCookie === "function" ? response.headers.getSetCookie() : [];
   response.headers.forEach((value, key) => {
-    if (key !== 'set-cookie') target.setHeader(key, value);
+    if (key !== "set-cookie") target.setHeader(key, value);
   });
-  if (cookies.length) target.setHeader('set-cookie', cookies);
+  if (cookies.length) target.setHeader("set-cookie", cookies);
 }
 
 function waitForDrain(response: ServerResponse): Promise<void> {
   return new Promise((resolve, reject) => {
     const cleanup = () => {
-      response.off('drain', drained);
-      response.off('close', closed);
-      response.off('error', failed);
+      response.off("drain", drained);
+      response.off("close", closed);
+      response.off("error", failed);
     };
     const drained = () => {
       cleanup();
@@ -29,15 +28,15 @@ function waitForDrain(response: ServerResponse): Promise<void> {
       cleanup();
       reject(error);
     };
-    response.once('drain', drained);
-    response.once('close', closed);
-    response.once('error', failed);
+    response.once("drain", drained);
+    response.once("close", closed);
+    response.once("error", failed);
   });
 }
 
 function disconnectError(): Error {
-  const error = new Error('Node response closed before the Web response completed.');
-  error.name = 'AbortError';
+  const error = new Error("Node response closed before the Web response completed.");
+  error.name = "AbortError";
   return error;
 }
 
@@ -49,7 +48,7 @@ export async function writeNodeResponse(
   target.statusCode = response.status;
   target.statusMessage = response.statusText;
   writeHeaders(response, target);
-  if (!response.body || method === 'HEAD') {
+  if (!response.body || method === "HEAD") {
     target.end();
     return;
   }
@@ -59,7 +58,7 @@ export async function writeNodeResponse(
     disconnected = true;
     void reader.cancel(disconnectError()).catch(() => undefined);
   };
-  target.once('close', onClose);
+  target.once("close", onClose);
   try {
     for (;;) {
       if (disconnected) return;
@@ -73,6 +72,6 @@ export async function writeNodeResponse(
     await reader.cancel(error).catch(() => undefined);
     target.destroy(error instanceof Error ? error : undefined);
   } finally {
-    target.off('close', onClose);
+    target.off("close", onClose);
   }
 }

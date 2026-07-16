@@ -2,21 +2,46 @@
   "name": "@askrjs/node",
   "version": "0.0.1",
   "description": "Node http adapter for @askrjs/server",
-  "keywords": ["askr", "http", "node", "server"],
+  "keywords": [
+    "askr",
+    "http",
+    "node",
+    "server"
+  ],
   "homepage": "https://github.com/askrjs/askr-node#readme",
-  "bugs": { "url": "https://github.com/askrjs/askr-node/issues" },
-  "repository": { "type": "git", "url": "git+https://github.com/askrjs/askr-node.git" },
-  "author": { "name": "askrjs", "url": "https://github.com/askrjs" },
+  "bugs": {
+    "url": "https://github.com/askrjs/askr-node/issues"
+  },
   "license": "Apache-2.0",
+  "author": {
+    "name": "askrjs",
+    "url": "https://github.com/askrjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/askrjs/askr-node.git"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp.d.ts",
+      "import": "./dist/mcp.js"
+    },
     "./package.json": "./package.json"
   },
-  "files": ["dist/**/*.js", "dist/**/*.d.ts"],
-  "publishConfig": { "access": "public" },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "vp pack",
     "fmt": "vp fmt .",
@@ -29,7 +54,18 @@
     "prepack": "npm run build",
     "prepublishOnly": "npm run check"
   },
-  "dependencies": { "@askrjs/server": ">=0.0.1 <0.1.0" },
-  "devDependencies": { "@types/node": "^26.0.0", "publint": "^0.3.21", "typescript": "^6.0.0", "vitest": "^4.0.0", "vite-plus": "^0.2.4" },
-  "engines": { "node": ">=18" }
+  "dependencies": {
+    "@askrjs/auth": ">=0.0.1 <0.1.0",
+    "@askrjs/server": ">=0.0.1 <0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "publint": "^0.3.21",
+    "typescript": "^6.0.0",
+    "vite-plus": "^0.2.4",
+    "vitest": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
 }

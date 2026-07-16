@@ -1,4 +1,4 @@
-import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { IncomingMessage, ServerResponse } from "node:http";
 
 export interface NodeHandlerOptions {
   baseUrl?: string;
@@ -9,6 +9,17 @@ export interface ListenOptions {
   host?: string;
   backlog?: number;
   signal?: AbortSignal;
+}
+
+export interface ServeOptions extends ListenOptions {
+  readonly assets?: { readonly root: string };
+  readonly signals?: false | readonly NodeJS.Signals[];
+}
+
+export interface ServedApplication {
+  readonly server: import("node:http").Server;
+  readonly url: string;
+  close(): Promise<void>;
 }
 
 export type ConnectNext = (error?: unknown) => void;
