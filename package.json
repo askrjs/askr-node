@@ -2,22 +2,34 @@
   "name": "@askrjs/node",
   "version": "0.0.1",
   "description": "Node http adapter for @askrjs/server",
+  "keywords": ["askr", "http", "node", "server"],
+  "homepage": "https://github.com/askrjs/askr-node#readme",
+  "bugs": { "url": "https://github.com/askrjs/askr-node/issues" },
+  "repository": { "type": "git", "url": "git+https://github.com/askrjs/askr-node.git" },
+  "author": { "name": "askrjs", "url": "https://github.com/askrjs" },
   "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./package.json": "./package.json"
+  },
   "files": ["dist/**/*.js", "dist/**/*.d.ts"],
+  "publishConfig": { "access": "public" },
   "scripts": {
     "build": "vp pack",
     "fmt": "vp fmt .",
     "lint": "vp lint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vp test run",
-    "check": "npm run lint && npm run typecheck && npm test",
-    "prepublishOnly": "npm run check && npm run build"
+    "test:publint": "publint",
+    "pack:check": "npm pack --ignore-scripts --dry-run --json",
+    "check": "npm run lint && npm run typecheck && npm test && npm run build && npm run test:publint && npm run pack:check",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run check"
   },
   "dependencies": { "@askrjs/server": ">=0.0.1 <0.1.0" },
-  "devDependencies": { "@types/node": "^26.0.0", "typescript": "^6.0.0", "vitest": "^4.0.0", "vite-plus": "^0.2.4" },
+  "devDependencies": { "@types/node": "^26.0.0", "publint": "^0.3.21", "typescript": "^6.0.0", "vitest": "^4.0.0", "vite-plus": "^0.2.4" },
   "engines": { "node": ">=18" }
 }

@@ -12,9 +12,33 @@ function writeHeaders(response: Response, target: ServerResponse): void {
 
 function waitForDrain(response: ServerResponse): Promise<void> {
   return new Promise((resolve, reject) => {
-    response.once('drain', resolve);
-    response.once('error', reject);
+    const cleanup = () => {
+      response.off('drain', drained);
+      response.off('close', closed);
+      response.off('error', failed);
+    };
+    const drained = () => {
+      cleanup();
+      resolve();
+    };
+    const closed = () => {
+      cleanup();
+      resolve();
+    };
+    const failed = (error: Error) => {
+      cleanup();
+      reject(error);
+    };
+    response.once('drain', drained);
+    response.once('close', closed);
+    response.once('error', failed);
   });
+}
+
+function disconnectError(): Error {
+  const error = new Error('Node response closed before the Web response completed.');
+  error.name = 'AbortError';
+  return error;
 }
 
 export async function writeNodeResponse(
@@ -30,15 +54,25 @@ export async function writeNodeResponse(
     return;
   }
   const reader = response.body.getReader();
+  let disconnected = false;
+  const onClose = () => {
+    disconnected = true;
+    void reader.cancel(disconnectError()).catch(() => undefined);
+  };
+  target.once('close', onClose);
   try {
     for (;;) {
+      if (disconnected) return;
       const part = await reader.read();
-      if (part.done) break;
+      if (part.done || disconnected) break;
       if (!target.write(Buffer.from(part.value))) await waitForDrain(target);
     }
-    target.end();
+    if (!disconnected) target.end();
   } catch (error) {
+    if (disconnected) return;
     await reader.cancel(error).catch(() => undefined);
     target.destroy(error instanceof Error ? error : undefined);
+  } finally {
+    target.off('close', onClose);
   }
 }

@@ -107,24 +107,24 @@ describe('Node adapter', () => {
   });
 
   it('should honor response backpressure', async () => {
-    class FakeResponse extends EventEmitter {
-      statusCode = 0;
-      statusMessage = '';
-      chunks: string[] = [];
-      ended = false;
-      setHeader() {}
+    const emitter = new EventEmitter();
+    const chunks: string[] = [];
+    let ended = false;
+    const target = Object.assign(emitter, {
+      statusCode: 0,
+      statusMessage: '',
+      setHeader() {},
       write(chunk: Buffer) {
-        this.chunks.push(chunk.toString());
-        if (this.chunks.length === 1) {
-          setTimeout(() => this.emit('drain'), 0);
+        chunks.push(chunk.toString());
+        if (chunks.length === 1) {
+          setTimeout(() => emitter.emit('drain'), 0);
           return false;
         }
         return true;
-      }
-      end() { this.ended = true; }
-      destroy(error?: Error) { if (error) this.emit('error', error); }
-    }
-    const target = new FakeResponse();
+      },
+      end() { ended = true; },
+      destroy(error?: Error) { if (error) emitter.emit('error', error); },
+    });
     const response = new Response(new ReadableStream({
       start(controller) {
         controller.enqueue(new TextEncoder().encode('one'));
@@ -133,8 +133,40 @@ describe('Node adapter', () => {
       },
     }));
     await writeNodeResponse(response, target as unknown as ServerResponse, 'GET');
-    expect(target.chunks).toEqual(['one', 'two']);
-    expect(target.ended).toBe(true);
+    expect(chunks).toEqual(['one', 'two']);
+    expect(ended).toBe(true);
+  });
+
+  it('should cancel the Web response body given an early Node disconnect', async () => {
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('first'));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const emitter = new EventEmitter();
+    const target = Object.assign(emitter, {
+      statusCode: 0,
+      statusMessage: '',
+      setHeader() {},
+      write() {
+        emitter.emit('close');
+        return true;
+      },
+      end() { throw new Error('end should not run after disconnect'); },
+      destroy() {},
+    });
+
+    await writeNodeResponse(
+      new Response(body),
+      target as unknown as ServerResponse,
+      'GET',
+    );
+
+    expect(cancelled).toBe(true);
   });
 
   it('should omit a body for HEAD', async () => {

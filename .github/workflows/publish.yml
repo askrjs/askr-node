@@ -1,0 +1,19 @@
+name: Publish Package
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  publish:
+    needs: ci
+    uses: askrjs/actions/.github/workflows/publish-package.yml@main
+    permissions:
+      contents: write
+      id-token: write
+      packages: read
+    secrets: inherit
