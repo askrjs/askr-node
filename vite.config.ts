@@ -8,7 +8,7 @@ export default defineConfig({
     platform: "node",
     outExtensions: () => ({ js: ".js", dts: ".d.ts" }),
     dts: true,
-    sourcemap: true,
+    sourcemap: "hidden",
     deps: { neverBundle: [/^@askrjs\/(?:auth|server)(?:\/.*)?$/] },
   },
 });
