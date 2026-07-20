@@ -41,18 +41,7 @@ jobs:
         run: npx playwright install chromium
 
       - name: Format check
-        run: npm run fmt --if-present -- --check
+        run: npm run fmt -- --check
 
-      - name: Lint
-        run: npm run lint
-
-      - name: Build
-        run: npm run build
-
-      - name: Test
-        run: npm test
-
-      - name: Type checks
-        run: |
-          npm run typecheck --if-present
-          npm run test:types --if-present
+      - name: Full release checks
+        run: npm run check
