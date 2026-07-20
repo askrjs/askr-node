@@ -1,8 +1,7 @@
 # @askrjs/node
 
-The Node.js runtime adapter for transport-neutral `@askrjs/server` applications. It converts Node
-HTTP requests and responses at the boundary while preserving the application's native Web
-`Request`/`Response` contract.
+Run an `@askrjs/server` application on Node.js. The adapter translates Node HTTP messages at the
+boundary while the application continues to use Web `Request` and `Response` objects.
 
 ## Install
 
@@ -24,9 +23,9 @@ const app = createServerApp({
 createServer(createNodeHandler(app)).listen(3000);
 ```
 
-`createNodeHandler` is Connect-shaped and accepts an optional `next` callback. Request bodies,
-response streams, repeated `Set-Cookie` headers, aborts, backpressure, status text, and HEAD
-semantics are carried across the Node/Web API boundary.
+`createNodeHandler` also works as Connect middleware because it accepts an optional `next`
+callback. It preserves streaming bodies, repeated `Set-Cookie` headers, aborts, backpressure,
+status text, and HEAD responses.
 
 ## Listen directly
 
@@ -34,7 +33,7 @@ semantics are carried across the Node/Web API boundary.
 import { listen } from "@askrjs/node";
 
 const server = await listen(app, { port: 3000 });
-await server.close();
+server.close();
 ```
 
 Pass an `AbortSignal` to integrate shutdown with your process lifecycle.
@@ -52,8 +51,7 @@ const running = await serve(app, {
 await running.close();
 ```
 
-`serve` combines the application with static assets and coordinates application and HTTP-server
-shutdown exactly once.
+`serve` handles static assets and closes both the HTTP server and the application during shutdown.
 
 ## MCP over stdio
 
