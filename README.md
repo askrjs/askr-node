@@ -1,5 +1,8 @@
 # @askrjs/node
 
+[![CI](https://github.com/askrjs/askr-node/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/askrjs/askr-node/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/%40askrjs%2Fnode.svg)](https://www.npmjs.com/package/@askrjs/node)
+
 Run an `@askrjs/server` application on Node.js. The adapter translates Node HTTP messages at the
 boundary while the application continues to use Web `Request` and `Response` objects.
 
