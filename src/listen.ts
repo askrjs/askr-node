@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 import type { ServerApp } from "@askrjs/server";
 import type { ListenOptions } from "./contracts.js";
 import { createNodeHandler } from "./handler.js";
+import { installWebSockets } from "./websocket.js";
 
 export type ListeningServer = Server & {
   address(): AddressInfo | string | null;
@@ -10,6 +11,19 @@ export type ListeningServer = Server & {
 
 export function listen(app: ServerApp, options: ListenOptions = {}): Promise<ListeningServer> {
   const server = createServer(createNodeHandler(app));
+  if (options.requestTimeout !== undefined) server.requestTimeout = options.requestTimeout;
+  if (options.headersTimeout !== undefined) server.headersTimeout = options.headersTimeout;
+  if (options.keepAliveTimeout !== undefined) server.keepAliveTimeout = options.keepAliveTimeout;
+  const webSockets = options.websocket
+    ? installWebSockets(server, app, options.websocket === true ? {} : options.websocket)
+    : undefined;
+  if (webSockets) {
+    const nativeClose = server.close.bind(server);
+    server.close = ((callback?: (error?: Error) => void) => {
+      webSockets.close();
+      return nativeClose(callback);
+    }) as Server["close"];
+  }
   const close = () => server.close();
   options.signal?.addEventListener("abort", close, { once: true });
   server.once("close", () => options.signal?.removeEventListener("abort", close));

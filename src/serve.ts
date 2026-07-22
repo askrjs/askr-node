@@ -5,6 +5,7 @@ import { extname, resolve, sep } from "node:path";
 import type { ServerApp } from "@askrjs/server";
 import type { ServeOptions, ServedApplication } from "./contracts.js";
 import { createNodeHandler } from "./handler.js";
+import { installWebSockets } from "./websocket.js";
 
 const mimeTypes: Readonly<Record<string, string>> = {
   ".css": "text/css; charset=utf-8",
@@ -32,8 +33,8 @@ export async function serve(
 ): Promise<ServedApplication> {
   const root = options.assets ? resolve(options.assets.root) : undefined;
   const applicationHandler = createNodeHandler({
-    async fetch(request) {
-      const result = await app.fetch(request);
+    async fetch(request, dispatchOptions) {
+      const result = await app.fetch(request, dispatchOptions);
       if (
         !result.headers.has("cache-control") &&
         result.headers.get("content-type")?.includes("text/html")
@@ -94,6 +95,12 @@ export async function serve(
     }
     applicationHandler(request, response);
   });
+  if (options.requestTimeout !== undefined) server.requestTimeout = options.requestTimeout;
+  if (options.headersTimeout !== undefined) server.headersTimeout = options.headersTimeout;
+  if (options.keepAliveTimeout !== undefined) server.keepAliveTimeout = options.keepAliveTimeout;
+  const webSockets = options.websocket
+    ? installWebSockets(server, app, options.websocket === true ? {} : options.websocket)
+    : undefined;
 
   let closing: Promise<void> | undefined;
   const signals = options.signals === false ? [] : (options.signals ?? ["SIGINT", "SIGTERM"]);
@@ -104,6 +111,7 @@ export async function serve(
   const close = () =>
     (closing ??= new Promise<void>((resolveClose, rejectClose) => {
       removeListeners();
+      webSockets?.close();
       const finish = async (serverError?: Error) => {
         try {
           await app.close?.();

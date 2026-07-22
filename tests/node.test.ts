@@ -3,7 +3,9 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { get, request as nodeRequest, type ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createRouter, createServerApp } from "@askrjs/server";
 import { describe, expect, it } from "vitest";
+import WebSocket from "ws";
 import { createNodeHandler, listen, serve } from "../src/index.js";
 import { writeNodeResponse } from "../src/response.js";
 
@@ -22,6 +24,48 @@ async function withServer(
 }
 
 describe("Node adapter", () => {
+  it("should apply native timeout options", async () => {
+    const server = await listen(
+      { fetch: async () => new Response() },
+      {
+        requestTimeout: 123,
+        headersTimeout: 456,
+        keepAliveTimeout: 789,
+      },
+    );
+    expect(server.requestTimeout).toBe(123);
+    expect(server.headersTimeout).toBe(456);
+    expect(server.keepAliveTimeout).toBe(789);
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
+  it("should exchange text and binary WebSocket messages", async () => {
+    const router = createRouter();
+    router.ws("/echo/{room}", (socket, context) => {
+      socket.onMessage((message) =>
+        socket.send(typeof message === "string" ? `${context.params.room}:${message}` : message),
+      );
+    });
+    const server = await listen(createServerApp({ router }), {
+      host: "127.0.0.1",
+      websocket: true,
+    });
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Expected TCP address");
+    const socket = new WebSocket(`ws://127.0.0.1:${address.port}/echo/room-1`);
+    await once(socket, "open");
+    socket.send("hello");
+    const [text] = await once(socket, "message");
+    expect(text.toString()).toBe("room-1:hello");
+    socket.send(Buffer.from([1, 2, 3]));
+    const [binary, isBinary] = await once(socket, "message");
+    expect(isBinary).toBe(true);
+    expect([...binary]).toEqual([1, 2, 3]);
+    socket.close();
+    await once(socket, "close");
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
   it("should preserve method URL headers and streaming body", async () => {
     await withServer(
       {

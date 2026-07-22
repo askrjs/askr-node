@@ -12,7 +12,7 @@ const result = JSON.parse(
 
 const manifest = JSON.parse(readFileSync("package.json", "utf8"));
 const dependencies = Object.keys(manifest.dependencies ?? {}).sort();
-const allowedDependencies = ["@askrjs/auth", "@askrjs/server"];
+const allowedDependencies = ["@askrjs/auth", "@askrjs/server", "ws"];
 if (JSON.stringify(dependencies) !== JSON.stringify(allowedDependencies)) {
   throw new Error(`Unexpected production dependencies: ${dependencies.join(", ")}`);
 }

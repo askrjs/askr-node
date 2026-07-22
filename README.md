@@ -35,11 +35,32 @@ status text, and HEAD responses.
 ```ts
 import { listen } from "@askrjs/node";
 
-const server = await listen(app, { port: 3000 });
+const server = await listen(app, {
+  port: 3000,
+  requestTimeout: 120_000,
+  headersTimeout: 60_000,
+  keepAliveTimeout: 5_000,
+});
 server.close();
 ```
 
 Pass an `AbortSignal` to integrate shutdown with your process lifecycle.
+
+Enable the built-in `ws` transport with `websocket: true`. It defaults to a
+1 MiB maximum message payload with compression disabled; pass
+`websocket: { maxPayload, perMessageDeflate }` to override those settings.
+
+```ts
+router.ws("/echo", (socket) => {
+  socket.onMessage((message) => socket.send(message));
+});
+
+const server = await listen(createServerApp({ router }), { websocket: true });
+```
+
+Route matching, authentication, and middleware complete before the handshake.
+Rejected upgrades preserve the application response, and shutdown closes active
+sockets.
 
 ## Serve a production application
 

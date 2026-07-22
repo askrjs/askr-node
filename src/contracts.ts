@@ -1,4 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import type { PerMessageDeflateOptions } from "ws";
+
+export interface NodeWebSocketOptions {
+  readonly maxPayload?: number;
+  readonly perMessageDeflate?: boolean | PerMessageDeflateOptions;
+}
 
 export interface NodeHandlerOptions {
   baseUrl?: string;
@@ -9,6 +15,10 @@ export interface ListenOptions {
   host?: string;
   backlog?: number;
   signal?: AbortSignal;
+  requestTimeout?: number;
+  headersTimeout?: number;
+  keepAliveTimeout?: number;
+  websocket?: boolean | NodeWebSocketOptions;
 }
 
 export interface ServeOptions extends ListenOptions {
