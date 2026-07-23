@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ServerApp } from "@askrjs/server";
 import type { NodeHandler, NodeHandlerOptions } from "./contracts.js";
-import { requestFromNode } from "./request.js";
+import { NodeRequestError, requestFromNode } from "./request.js";
 import { writeNodeResponse } from "./response.js";
 
 function minimalError(response: ServerResponse, error: unknown): void {
@@ -9,10 +9,11 @@ function minimalError(response: ServerResponse, error: unknown): void {
     response.destroy(error instanceof Error ? error : undefined);
     return;
   }
-  response.statusCode = 500;
-  response.statusMessage = "Internal Server Error";
+  const clientError = error instanceof NodeRequestError;
+  response.statusCode = clientError ? 400 : 500;
+  response.statusMessage = clientError ? "Bad Request" : "Internal Server Error";
   response.setHeader("content-type", "text/plain; charset=utf-8");
-  response.end("Internal Server Error");
+  response.end(clientError ? "Bad Request" : "Internal Server Error");
 }
 
 function attachAbort(

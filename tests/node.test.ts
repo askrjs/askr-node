@@ -52,7 +52,9 @@ describe("Node adapter", () => {
     });
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("Expected TCP address");
-    const socket = new WebSocket(`ws://127.0.0.1:${address.port}/echo/room-1`);
+    const socket = new WebSocket(`ws://127.0.0.1:${address.port}/echo/room-1`, {
+      origin: `http://127.0.0.1:${address.port}`,
+    });
     await once(socket, "open");
     socket.send("hello");
     const [text] = await once(socket, "message");
@@ -63,6 +65,53 @@ describe("Node adapter", () => {
     expect([...binary]).toEqual([1, 2, 3]);
     socket.close();
     await once(socket, "close");
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
+  it("should reject cross-site WebSocket upgrades by default", async () => {
+    const router = createRouter();
+    router.ws("/echo", () => undefined);
+    const server = await listen(createServerApp({ router }), {
+      host: "127.0.0.1",
+      websocket: true,
+    });
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Expected TCP address");
+    const socket = new WebSocket(`ws://127.0.0.1:${address.port}/echo`, {
+      origin: "https://evil.example",
+    });
+    socket.on("error", () => undefined);
+    const [, response] = await once(socket, "unexpected-response");
+    expect(response.statusCode).toBe(403);
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
+  it("should reject untrusted Host and absolute-form request targets", async () => {
+    const server = await listen(
+      createServerApp({ routes: [{ path: "/", handler: (ctx) => ctx.ok() }] }),
+      {
+        host: "127.0.0.1",
+      },
+    );
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Expected TCP address");
+    const send = (path: string, host: string) =>
+      new Promise<number>((resolve, reject) => {
+        const request = nodeRequest({
+          host: "127.0.0.1",
+          port: address.port,
+          path,
+          headers: { host },
+        });
+        request.once("response", (response) => {
+          response.resume();
+          resolve(response.statusCode ?? 0);
+        });
+        request.once("error", reject);
+        request.end();
+      });
+    await expect(send("/", "evil.example")).resolves.toBe(400);
+    await expect(send("http://evil.example/", `127.0.0.1:${address.port}`)).resolves.toBe(400);
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
@@ -255,11 +304,14 @@ describe("Node adapter", () => {
 
   it("should call Connect next given an adapter failure", async () => {
     let nextError: unknown;
-    const handler = createNodeHandler({
-      fetch: async () => {
-        throw new Error("boom");
+    const handler = createNodeHandler(
+      {
+        fetch: async () => {
+          throw new Error("boom");
+        },
       },
-    });
+      { allowedHosts: ["127.0.0.1"] },
+    );
     const { createServer } = await import("node:http");
     const server = createServer((request, response) =>
       handler(request, response, (error) => {

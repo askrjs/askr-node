@@ -32,24 +32,30 @@ export async function serve(
   options: ServeOptions = {},
 ): Promise<ServedApplication> {
   const root = options.assets ? resolve(options.assets.root) : undefined;
-  const applicationHandler = createNodeHandler({
-    async fetch(request, dispatchOptions) {
-      const result = await app.fetch(request, dispatchOptions);
-      if (
-        !result.headers.has("cache-control") &&
-        result.headers.get("content-type")?.includes("text/html")
-      ) {
-        const headers = new Headers(result.headers);
-        headers.set("cache-control", "no-cache");
-        return new Response(result.body, {
-          status: result.status,
-          statusText: result.statusText,
-          headers,
-        });
-      }
-      return result;
+  const handlerOptions = {
+    allowedHosts: [options.host ?? "127.0.0.1", "localhost"],
+  };
+  const applicationHandler = createNodeHandler(
+    {
+      async fetch(request, dispatchOptions) {
+        const result = await app.fetch(request, dispatchOptions);
+        if (
+          !result.headers.has("cache-control") &&
+          result.headers.get("content-type")?.includes("text/html")
+        ) {
+          const headers = new Headers(result.headers);
+          headers.set("cache-control", "no-cache");
+          return new Response(result.body, {
+            status: result.status,
+            statusText: result.statusText,
+            headers,
+          });
+        }
+        return result;
+      },
     },
-  });
+    handlerOptions,
+  );
   const server = createServer(async (request, response) => {
     let pathname: string;
     try {
@@ -99,7 +105,12 @@ export async function serve(
   if (options.headersTimeout !== undefined) server.headersTimeout = options.headersTimeout;
   if (options.keepAliveTimeout !== undefined) server.keepAliveTimeout = options.keepAliveTimeout;
   const webSockets = options.websocket
-    ? installWebSockets(server, app, options.websocket === true ? {} : options.websocket)
+    ? installWebSockets(
+        server,
+        app,
+        options.websocket === true ? {} : options.websocket,
+        handlerOptions,
+      )
     : undefined;
 
   let closing: Promise<void> | undefined;

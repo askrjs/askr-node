@@ -11,6 +11,8 @@ export interface McpStdioOptions<Dependencies = undefined> {
   signal?: AbortSignal;
   auth?: AuthContext | ((environment: NodeJS.ProcessEnv) => AuthContext | Promise<AuthContext>);
   environment?: NodeJS.ProcessEnv;
+  maxLineBytes?: number;
+  maxConcurrency?: number;
 }
 
 export interface McpStdioConnection {
@@ -40,6 +42,13 @@ export function connectMcpStdio<Dependencies>(
     finish = resolve;
   });
   let ended = false;
+  const maxLineBytes = options.maxLineBytes ?? 1_048_576;
+  const maxConcurrency = options.maxConcurrency ?? 16;
+  if (!Number.isInteger(maxLineBytes) || maxLineBytes <= 0)
+    throw new TypeError("MCP maxLineBytes must be a positive integer.");
+  if (!Number.isInteger(maxConcurrency) || maxConcurrency <= 0)
+    throw new TypeError("MCP maxConcurrency must be a positive integer.");
+  let active = 0;
   const write = (message: unknown) =>
     new Promise<void>((resolve, reject) => {
       output.write(`${JSON.stringify(message)}\n`, (error) => (error ? reject(error) : resolve()));
@@ -56,6 +65,23 @@ export function connectMcpStdio<Dependencies>(
   };
   options.signal?.addEventListener("abort", () => void close(), { once: true });
   lines.on("line", (line) => {
+    if (Buffer.byteLength(line) > maxLineBytes) {
+      void write({
+        jsonrpc: "2.0",
+        id: null,
+        error: { code: -32600, message: "Request line exceeds the configured limit" },
+      }).catch(() => void close());
+      return;
+    }
+    if (active >= maxConcurrency) {
+      void write({
+        jsonrpc: "2.0",
+        id: null,
+        error: { code: -32600, message: "Too many concurrent requests" },
+      }).catch(() => void close());
+      return;
+    }
+    active += 1;
     void (async () => {
       let message: unknown;
       try {
@@ -100,11 +126,15 @@ export function connectMcpStdio<Dependencies>(
           if (controller && id !== undefined) controllers.delete(id as string | number);
         }
       }
-    })().catch((error) =>
-      diagnostics.write(
-        `MCP stdio error: ${error instanceof Error ? error.message : String(error)}\n`,
-      ),
-    );
+    })()
+      .catch((error) =>
+        diagnostics.write(
+          `MCP stdio error: ${error instanceof Error ? error.message : String(error)}\n`,
+        ),
+      )
+      .finally(() => {
+        active -= 1;
+      });
   });
   lines.once("close", () => {
     if (!ended) {

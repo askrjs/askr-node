@@ -23,7 +23,7 @@ const app = createServerApp({
   routes: [{ path: "/health", handler: () => json({ status: "ok" }) }],
 });
 
-createServer(createNodeHandler(app)).listen(3000);
+createServer(createNodeHandler(app, { baseUrl: "http://localhost:3000" })).listen(3000);
 ```
 
 `createNodeHandler` also works as Connect middleware because it accepts an optional `next`
