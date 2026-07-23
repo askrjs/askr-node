@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ServerApp } from "@askrjs/server";
 import type { NodeHandler, NodeHandlerOptions } from "./contracts.js";
-import { requestFromNode } from "./request.js";
+import { NodeRequestError, requestFromNode } from "./request.js";
 import { writeNodeResponse } from "./response.js";
 
 function minimalError(response: ServerResponse, error: unknown): void {
@@ -9,7 +9,7 @@ function minimalError(response: ServerResponse, error: unknown): void {
     response.destroy(error instanceof Error ? error : undefined);
     return;
   }
-  const clientError = error instanceof TypeError;
+  const clientError = error instanceof NodeRequestError;
   response.statusCode = clientError ? 400 : 500;
   response.statusMessage = clientError ? "Bad Request" : "Internal Server Error";
   response.setHeader("content-type", "text/plain; charset=utf-8");

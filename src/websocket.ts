@@ -64,9 +64,16 @@ export function installWebSockets(
     void Promise.resolve()
       .then(() => requestFromNode(request, handlerOptions, controller.signal))
       .then(async (webRequest) => {
-        const origin = request.headers.origin;
+        const originHeader = request.headers.origin;
+        const origin = Array.isArray(originHeader) ? undefined : originHeader;
         const allowedOrigins = options.allowedOrigins ?? [new URL(webRequest.url).origin];
-        if (!origin || !allowedOrigins.includes(new URL(origin).origin)) {
+        let normalizedOrigin: string | undefined;
+        try {
+          normalizedOrigin = origin ? new URL(origin).origin : undefined;
+        } catch {
+          normalizedOrigin = undefined;
+        }
+        if (!normalizedOrigin || !allowedOrigins.includes(normalizedOrigin)) {
           await rejectUpgrade(socket, new Response("Forbidden", { status: 403 }));
           return;
         }

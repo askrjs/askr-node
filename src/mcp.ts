@@ -70,7 +70,7 @@ export function connectMcpStdio<Dependencies>(
         jsonrpc: "2.0",
         id: null,
         error: { code: -32600, message: "Request line exceeds the configured limit" },
-      });
+      }).catch(() => void close());
       return;
     }
     if (active >= maxConcurrency) {
@@ -78,7 +78,7 @@ export function connectMcpStdio<Dependencies>(
         jsonrpc: "2.0",
         id: null,
         error: { code: -32600, message: "Too many concurrent requests" },
-      });
+      }).catch(() => void close());
       return;
     }
     active += 1;
