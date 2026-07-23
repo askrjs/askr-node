@@ -9,10 +9,11 @@ function minimalError(response: ServerResponse, error: unknown): void {
     response.destroy(error instanceof Error ? error : undefined);
     return;
   }
-  response.statusCode = 500;
-  response.statusMessage = "Internal Server Error";
+  const clientError = error instanceof TypeError;
+  response.statusCode = clientError ? 400 : 500;
+  response.statusMessage = clientError ? "Bad Request" : "Internal Server Error";
   response.setHeader("content-type", "text/plain; charset=utf-8");
-  response.end("Internal Server Error");
+  response.end(clientError ? "Bad Request" : "Internal Server Error");
 }
 
 function attachAbort(

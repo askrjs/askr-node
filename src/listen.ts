@@ -10,12 +10,20 @@ export type ListeningServer = Server & {
 };
 
 export function listen(app: ServerApp, options: ListenOptions = {}): Promise<ListeningServer> {
-  const server = createServer(createNodeHandler(app));
+  const handlerOptions = {
+    allowedHosts: [options.host ?? "127.0.0.1", "localhost"],
+  };
+  const server = createServer(createNodeHandler(app, handlerOptions));
   if (options.requestTimeout !== undefined) server.requestTimeout = options.requestTimeout;
   if (options.headersTimeout !== undefined) server.headersTimeout = options.headersTimeout;
   if (options.keepAliveTimeout !== undefined) server.keepAliveTimeout = options.keepAliveTimeout;
   const webSockets = options.websocket
-    ? installWebSockets(server, app, options.websocket === true ? {} : options.websocket)
+    ? installWebSockets(
+        server,
+        app,
+        options.websocket === true ? {} : options.websocket,
+        handlerOptions,
+      )
     : undefined;
   if (webSockets) {
     const nativeClose = server.close.bind(server);

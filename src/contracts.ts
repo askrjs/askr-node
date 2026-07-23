@@ -4,10 +4,12 @@ import type { PerMessageDeflateOptions } from "ws";
 export interface NodeWebSocketOptions {
   readonly maxPayload?: number;
   readonly perMessageDeflate?: boolean | PerMessageDeflateOptions;
+  readonly allowedOrigins?: readonly string[];
 }
 
 export interface NodeHandlerOptions {
   baseUrl?: string;
+  allowedHosts?: readonly string[];
 }
 
 export interface ListenOptions {

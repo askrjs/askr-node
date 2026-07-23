@@ -64,6 +64,12 @@ export function installWebSockets(
     void Promise.resolve()
       .then(() => requestFromNode(request, handlerOptions, controller.signal))
       .then(async (webRequest) => {
+        const origin = request.headers.origin;
+        const allowedOrigins = options.allowedOrigins ?? [new URL(webRequest.url).origin];
+        if (!origin || !allowedOrigins.includes(new URL(origin).origin)) {
+          await rejectUpgrade(socket, new Response("Forbidden", { status: 403 }));
+          return;
+        }
         let marker: Response | undefined;
         const response = await app.fetch(webRequest, {
           websocket: {

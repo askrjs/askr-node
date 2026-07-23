@@ -1,5 +1,6 @@
 import { PassThrough } from "node:stream";
 import { createMcpServer } from "@askrjs/server/mcp";
+import { schema } from "@askrjs/schema";
 import { afterEach, describe, expect, it } from "vitest";
 import { connectMcpStdio } from "../src/mcp";
 
@@ -61,5 +62,45 @@ describe("MCP stdio", () => {
     io.input.write("not-json\n");
     await until(() => io.lines.length === 1);
     expect(io.lines[0]).toMatchObject({ id: null, error: { code: -32700 } });
+  });
+
+  it("should bound line size and concurrent request handling", async () => {
+    const io = harness();
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const server = createMcpServer({ name: "stdio", version: "1" }).tool(
+      "wait",
+      { input: schema.object({}) },
+      async () => {
+        await gate;
+        return { content: [] };
+      },
+    );
+    const connection = connectMcpStdio(server, {
+      dependencies: undefined,
+      maxConcurrency: 1,
+      maxLineBytes: 128,
+      ...io,
+    });
+    connections.push(connection);
+    io.input.write(
+      `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "wait" } })}\n`,
+    );
+    io.input.write(`${JSON.stringify({ jsonrpc: "2.0", id: 2, method: "ping" })}\n`);
+    io.input.write(`${"x".repeat(129)}\n`);
+    await until(() => io.lines.length === 2);
+    expect(io.lines).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          error: { code: -32600, message: "Too many concurrent requests" },
+        }),
+        expect.objectContaining({
+          error: { code: -32600, message: "Request line exceeds the configured limit" },
+        }),
+      ]),
+    );
+    release!();
   });
 });
