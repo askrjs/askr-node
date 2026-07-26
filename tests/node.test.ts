@@ -36,7 +36,8 @@ describe("Node adapter", () => {
     expect(() => listen(app, { host: "0.0.0.0" })).toThrow("without allowPublicBind: true");
     const publicServer = await listen(app, { host: "0.0.0.0", allowPublicBind: true });
     const publicAddress = publicServer.address();
-    if (!publicAddress || typeof publicAddress === "string") throw new Error("Expected TCP address");
+    if (!publicAddress || typeof publicAddress === "string")
+      throw new Error("Expected TCP address");
     expect(publicAddress.address).toBe("0.0.0.0");
     await new Promise<void>((resolve) => publicServer.close(() => resolve()));
 
