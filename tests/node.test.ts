@@ -107,6 +107,41 @@ describe("Node adapter", () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
+  it("should stop buffering oversized WebSocket rejection bodies", async () => {
+    let cancelled = false;
+    const body = new ReadableStream({
+      pull(controller) {
+        controller.enqueue(new TextEncoder().encode("123456"));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const server = await listen(
+      { fetch: async () => new Response(body, { status: 401 }) },
+      {
+        host: "127.0.0.1",
+        websocket: { maxRejectionBodyBytes: 8 },
+      },
+    );
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Expected TCP address");
+    const socket = new WebSocket(`ws://127.0.0.1:${address.port}/rejected`, {
+      origin: `http://127.0.0.1:${address.port}`,
+    });
+    socket.on("error", () => undefined);
+    const [, response] = await once(socket, "unexpected-response");
+    const chunks: Buffer[] = [];
+    response.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    await once(response, "end");
+    expect(response.statusCode).toBe(500);
+    expect(Buffer.concat(chunks).toString()).toBe(
+      "WebSocket rejection body exceeded configured limit",
+    );
+    expect(cancelled).toBe(true);
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
   it("should reject untrusted Host and absolute-form request targets", async () => {
     const server = await listen(
       createServerApp({ routes: [{ path: "/", handler: (ctx) => ctx.ok() }] }),

@@ -48,7 +48,8 @@ Pass an `AbortSignal` to integrate shutdown with your process lifecycle.
 
 Enable the built-in `ws` transport with `websocket: true`. It defaults to a
 1 MiB maximum message payload with compression disabled; pass
-`websocket: { maxPayload, perMessageDeflate }` to override those settings.
+`websocket: { maxPayload, maxRejectionBodyBytes, perMessageDeflate }` to override
+those settings. Rejected upgrade bodies are capped at 64 KiB by default.
 
 ```ts
 router.ws("/echo", (socket) => {

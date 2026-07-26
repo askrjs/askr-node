@@ -36,11 +36,43 @@ function socketLike(socket: WebSocket): WebSocketLike {
   };
 }
 
-async function rejectUpgrade(socket: Duplex, response: Response): Promise<void> {
-  const body = Buffer.from(await response.arrayBuffer());
+async function readRejectionBody(
+  response: Response,
+  maxBytes: number,
+): Promise<Buffer | undefined> {
+  const declaredLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) return undefined;
+  if (!response.body) return Buffer.alloc(0);
+  const reader = response.body.getReader();
+  const chunks: Buffer[] = [];
+  let length = 0;
+  while (true) {
+    const part = await reader.read();
+    if (part.done) return Buffer.concat(chunks, length);
+    length += part.value.byteLength;
+    if (length > maxBytes) {
+      await reader.cancel("WebSocket rejection body exceeded maxRejectionBodyBytes");
+      return undefined;
+    }
+    chunks.push(Buffer.from(part.value));
+  }
+}
+
+async function rejectUpgrade(
+  socket: Duplex,
+  response: Response,
+  maxBodyBytes: number,
+): Promise<void> {
+  const buffered = await readRejectionBody(response, maxBodyBytes);
+  if (!buffered) {
+    response = new Response("WebSocket rejection body exceeded configured limit", { status: 500 });
+  }
+  const body = buffered ?? Buffer.from(await response.arrayBuffer());
   const lines = [`HTTP/1.1 ${response.status} ${response.statusText || "Rejected"}`];
-  response.headers.forEach((value, name) => lines.push(`${name}: ${value}`));
-  if (!response.headers.has("content-length")) lines.push(`content-length: ${body.byteLength}`);
+  response.headers.forEach((value, name) => {
+    if (name !== "content-length" && name !== "transfer-encoding") lines.push(`${name}: ${value}`);
+  });
+  lines.push(`content-length: ${body.byteLength}`);
   lines.push("connection: close", "", "");
   socket.end(Buffer.concat([Buffer.from(lines.join("\r\n")), body]));
 }
@@ -51,6 +83,10 @@ export function installWebSockets(
   options: NodeWebSocketOptions = {},
   handlerOptions: NodeHandlerOptions = {},
 ): { close(): void } {
+  const maxRejectionBodyBytes = options.maxRejectionBodyBytes ?? 65_536;
+  if (!Number.isInteger(maxRejectionBodyBytes) || maxRejectionBodyBytes <= 0) {
+    throw new TypeError("WebSocket maxRejectionBodyBytes must be a positive integer.");
+  }
   const webSockets = new WebSocketServer({
     noServer: true,
     maxPayload: options.maxPayload ?? 1_048_576,
@@ -74,7 +110,11 @@ export function installWebSockets(
           normalizedOrigin = undefined;
         }
         if (!normalizedOrigin || !allowedOrigins.includes(normalizedOrigin)) {
-          await rejectUpgrade(socket, new Response("Forbidden", { status: 403 }));
+          await rejectUpgrade(
+            socket,
+            new Response("Forbidden", { status: 403 }),
+            maxRejectionBodyBytes,
+          );
           return;
         }
         let marker: Response | undefined;
@@ -88,7 +128,7 @@ export function installWebSockets(
           },
         });
         if (!accepted || response !== accepted.response) {
-          await rejectUpgrade(socket, response);
+          await rejectUpgrade(socket, response, maxRejectionBodyBytes);
           return;
         }
         webSockets.handleUpgrade(request, socket, head, (webSocket) => {
