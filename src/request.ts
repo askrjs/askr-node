@@ -13,11 +13,7 @@ function requestHeaders(request: IncomingMessage): Headers {
   return headers;
 }
 
-export function requestFromNode(
-  request: IncomingMessage,
-  options: NodeHandlerOptions,
-  signal: AbortSignal,
-): Request {
+export function resolveNodeRequestUrl(request: IncomingMessage, options: NodeHandlerOptions): URL {
   const host = request.headers.host;
   if (!options.baseUrl && !options.allowedHosts?.length)
     throw new NodeRequestError("Node handling requires baseUrl or an allowedHosts allowlist.");
@@ -32,6 +28,15 @@ export function requestFromNode(
   const target = new URL(request.url ?? "/", base);
   if (/^https?:\/\//i.test(request.url ?? "") && target.origin !== new URL(base).origin)
     throw new NodeRequestError("Absolute-form request target origin is not allowed.");
+  return target;
+}
+
+export function requestFromNode(
+  request: IncomingMessage,
+  options: NodeHandlerOptions,
+  signal: AbortSignal,
+): Request {
+  const target = resolveNodeRequestUrl(request, options);
   const method = request.method ?? "GET";
   const body =
     method === "GET" || method === "HEAD"
