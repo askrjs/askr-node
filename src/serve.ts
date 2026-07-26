@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import type { ServerApp } from "@askrjs/server";
 import type { ServeOptions, ServedApplication } from "./contracts.js";
-import { resolveBindHost } from "./bind.js";
+import { formatHostForUrl, resolveBindHost } from "./bind.js";
 import { createNodeHandler } from "./handler.js";
 import { installWebSockets } from "./websocket.js";
 
@@ -167,5 +167,5 @@ export async function serve(
     await close();
     throw new Error("serve requires a TCP address.");
   }
-  return Object.freeze({ server, url: `http://${host}:${address.port}`, close });
+  return Object.freeze({ server, url: `http://${formatHostForUrl(host)}:${address.port}`, close });
 }

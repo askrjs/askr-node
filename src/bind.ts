@@ -10,3 +10,7 @@ export function resolveBindHost(options: Pick<ListenOptions, "allowPublicBind" |
   }
   return host;
 }
+
+export function formatHostForUrl(host: string): string {
+  return host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
+}

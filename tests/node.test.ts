@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { createRouter, createServerApp } from "@askrjs/server";
 import { describe, expect, it } from "vitest";
 import WebSocket from "ws";
+import { formatHostForUrl } from "../src/bind.js";
 import { createNodeHandler, listen, serve } from "../src/index.js";
 import { writeNodeResponse } from "../src/response.js";
 
@@ -28,14 +29,19 @@ describe("Node adapter", () => {
     const app = { fetch: async () => new Response() };
     const local = await listen(app);
     const localAddress = local.address();
-    expect(typeof localAddress === "object" && localAddress?.address).toBe("127.0.0.1");
+    if (!localAddress || typeof localAddress === "string") throw new Error("Expected TCP address");
+    expect(localAddress.address).toBe("127.0.0.1");
     await new Promise<void>((resolve) => local.close(() => resolve()));
 
     expect(() => listen(app, { host: "0.0.0.0" })).toThrow("without allowPublicBind: true");
     const publicServer = await listen(app, { host: "0.0.0.0", allowPublicBind: true });
     const publicAddress = publicServer.address();
-    expect(typeof publicAddress === "object" && publicAddress?.address).toBe("0.0.0.0");
+    if (!publicAddress || typeof publicAddress === "string") throw new Error("Expected TCP address");
+    expect(publicAddress.address).toBe("0.0.0.0");
     await new Promise<void>((resolve) => publicServer.close(() => resolve()));
+
+    expect(formatHostForUrl("::1")).toBe("[::1]");
+    expect(formatHostForUrl("127.0.0.1")).toBe("127.0.0.1");
   });
 
   it("should apply native timeout options", async () => {
