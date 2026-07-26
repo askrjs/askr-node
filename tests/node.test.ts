@@ -428,6 +428,28 @@ describe("serve", () => {
       expect(asset.headers.get("x-content-type-options")).toBe("nosniff");
       expect((await fetch(`${served.url}/missing.js`)).status).toBe(404);
       expect(fallthrough).toBe(0);
+      const address = served.server.address();
+      if (!address || typeof address === "string") throw new Error("Expected TCP address");
+      const send = (path: string, host: string) =>
+        new Promise<number>((resolve, reject) => {
+          const request = nodeRequest({
+            host: "127.0.0.1",
+            port: address.port,
+            path,
+            headers: { host },
+          });
+          request.once("response", (response) => {
+            response.resume();
+            resolve(response.statusCode ?? 0);
+          });
+          request.once("error", reject);
+          request.end();
+        });
+      await expect(send("/app-12345678.js", "evil.example")).resolves.toBe(400);
+      await expect(
+        send("http://evil.example/app-12345678.js", `127.0.0.1:${address.port}`),
+      ).resolves.toBe(400);
+      expect(fallthrough).toBe(0);
       expect(await (await fetch(`${served.url}/page`)).text()).toBe("app");
       expect(fallthrough).toBe(1);
     } finally {

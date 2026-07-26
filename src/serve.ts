@@ -6,6 +6,7 @@ import type { ServerApp } from "@askrjs/server";
 import type { ServeOptions, ServedApplication } from "./contracts.js";
 import { formatHostForUrl, resolveBindHost } from "./bind.js";
 import { createNodeHandler } from "./handler.js";
+import { resolveNodeRequestUrl } from "./request.js";
 import { installWebSockets } from "./websocket.js";
 
 const mimeTypes: Readonly<Record<string, string>> = {
@@ -66,7 +67,7 @@ export async function serve(
   const server = createServer(async (request, response) => {
     let pathname: string;
     try {
-      pathname = decodeURIComponent(new URL(request.url ?? "/", "http://askr.local").pathname);
+      pathname = decodeURIComponent(resolveNodeRequestUrl(request, handlerOptions).pathname);
     } catch {
       response.writeHead(400, { "content-type": "text/plain; charset=utf-8" }).end("Bad Request");
       return;
