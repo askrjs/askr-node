@@ -27,6 +27,11 @@ function isAssetPath(pathname: string): boolean {
   return extname(pathname) !== "";
 }
 
+function isWithinRoot(root: string, candidate: string): boolean {
+  const prefix = root.endsWith(sep) ? root : `${root}${sep}`;
+  return candidate === root || candidate.startsWith(prefix);
+}
+
 export async function serve(
   app: ServerApp & { close?: () => void | Promise<void> },
   options: ServeOptions = {},
@@ -68,15 +73,16 @@ export async function serve(
     if (root && (method === "GET" || method === "HEAD") && isAssetPath(pathname)) {
       const extension = extname(pathname).toLowerCase();
       const unresolvedCandidate = resolve(root, `.${pathname}`);
-      const inside = unresolvedCandidate.startsWith(`${root}${sep}`);
+      const inside = isWithinRoot(root, unresolvedCandidate);
       let candidate: string | undefined;
       let file: Awaited<ReturnType<typeof stat>> | undefined;
       if (inside && extension !== ".map") {
         try {
-          candidate = await realpath(unresolvedCandidate);
-          if (!candidate.startsWith(`${root}${sep}`)) candidate = undefined;
-          if (!candidate) throw new Error("Asset path escapes the configured root.");
-          file = await stat(candidate);
+          const resolvedCandidate = await realpath(unresolvedCandidate);
+          if (isWithinRoot(root, resolvedCandidate)) {
+            candidate = resolvedCandidate;
+            file = await stat(candidate);
+          }
         } catch {
           candidate = undefined;
           file = undefined;
