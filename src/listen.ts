@@ -2,6 +2,7 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { ServerApp } from "@askrjs/server";
 import type { ListenOptions } from "./contracts.js";
+import { resolveBindHost } from "./bind.js";
 import { createNodeHandler } from "./handler.js";
 import { installWebSockets } from "./websocket.js";
 
@@ -10,8 +11,9 @@ export type ListeningServer = Server & {
 };
 
 export function listen(app: ServerApp, options: ListenOptions = {}): Promise<ListeningServer> {
+  const host = resolveBindHost(options);
   const handlerOptions = {
-    allowedHosts: [options.host ?? "127.0.0.1", "localhost"],
+    allowedHosts: [host, "localhost"],
   };
   const server = createServer(createNodeHandler(app, handlerOptions));
   if (options.requestTimeout !== undefined) server.requestTimeout = options.requestTimeout;
@@ -41,7 +43,7 @@ export function listen(app: ServerApp, options: ListenOptions = {}): Promise<Lis
       reject(error);
     };
     server.once("error", onError);
-    server.listen(options.port ?? 0, options.host, options.backlog, () => {
+    server.listen(options.port ?? 0, host, options.backlog, () => {
       server.off("error", onError);
       resolve(server as ListeningServer);
     });

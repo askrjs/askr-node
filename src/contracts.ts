@@ -15,6 +15,7 @@ export interface NodeHandlerOptions {
 export interface ListenOptions {
   port?: number;
   host?: string;
+  allowPublicBind?: boolean;
   backlog?: number;
   signal?: AbortSignal;
   requestTimeout?: number;
