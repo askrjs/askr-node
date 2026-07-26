@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import type { ServerApp } from "@askrjs/server";
 import type { ServeOptions, ServedApplication } from "./contracts.js";
+import { resolveBindHost } from "./bind.js";
 import { createNodeHandler } from "./handler.js";
 import { installWebSockets } from "./websocket.js";
 
@@ -36,9 +37,10 @@ export async function serve(
   app: ServerApp & { close?: () => void | Promise<void> },
   options: ServeOptions = {},
 ): Promise<ServedApplication> {
+  const host = resolveBindHost(options);
   const root = options.assets ? await realpath(resolve(options.assets.root)) : undefined;
   const handlerOptions = {
-    allowedHosts: [options.host ?? "127.0.0.1", "localhost"],
+    allowedHosts: [host, "localhost"],
   };
   const applicationHandler = createNodeHandler(
     {
@@ -152,7 +154,7 @@ export async function serve(
 
   await new Promise<void>((resolveListen, rejectListen) => {
     server.once("error", rejectListen);
-    server.listen(options.port ?? 0, options.host ?? "127.0.0.1", options.backlog, () => {
+    server.listen(options.port ?? 0, host, options.backlog, () => {
       server.removeListener("error", rejectListen);
       resolveListen();
     });
@@ -165,6 +167,5 @@ export async function serve(
     await close();
     throw new Error("serve requires a TCP address.");
   }
-  const host = options.host ?? "127.0.0.1";
   return Object.freeze({ server, url: `http://${host}:${address.port}`, close });
 }

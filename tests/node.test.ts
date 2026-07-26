@@ -24,6 +24,20 @@ async function withServer(
 }
 
 describe("Node adapter", () => {
+  it("should bind to loopback by default and require public bind opt-in", async () => {
+    const app = { fetch: async () => new Response() };
+    const local = await listen(app);
+    const localAddress = local.address();
+    expect(typeof localAddress === "object" && localAddress?.address).toBe("127.0.0.1");
+    await new Promise<void>((resolve) => local.close(() => resolve()));
+
+    expect(() => listen(app, { host: "0.0.0.0" })).toThrow("without allowPublicBind: true");
+    const publicServer = await listen(app, { host: "0.0.0.0", allowPublicBind: true });
+    const publicAddress = publicServer.address();
+    expect(typeof publicAddress === "object" && publicAddress?.address).toBe("0.0.0.0");
+    await new Promise<void>((resolve) => publicServer.close(() => resolve()));
+  });
+
   it("should apply native timeout options", async () => {
     const server = await listen(
       { fetch: async () => new Response() },

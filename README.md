@@ -76,6 +76,8 @@ await running.close();
 ```
 
 `serve` handles static assets and closes both the HTTP server and the application during shutdown.
+Both `listen` and `serve` bind to `127.0.0.1` by default. A non-loopback
+`host` also requires `allowPublicBind: true` so public exposure is explicit.
 
 ## MCP over stdio
 
