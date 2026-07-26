@@ -40,8 +40,16 @@ async function readRejectionBody(
   response: Response,
   maxBytes: number,
 ): Promise<Buffer | undefined> {
-  const declaredLength = Number(response.headers.get("content-length"));
-  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) return undefined;
+  const lengthHeader = response.headers.get("content-length");
+  const declaredLength = lengthHeader === null ? undefined : Number(lengthHeader);
+  if (
+    declaredLength !== undefined &&
+    Number.isFinite(declaredLength) &&
+    declaredLength > maxBytes
+  ) {
+    await response.body?.cancel("WebSocket rejection body exceeded maxRejectionBodyBytes");
+    return undefined;
+  }
   if (!response.body) return Buffer.alloc(0);
   const reader = response.body.getReader();
   const chunks: Buffer[] = [];
