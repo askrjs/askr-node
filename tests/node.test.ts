@@ -1,5 +1,5 @@
 import { EventEmitter, once } from "node:events";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { get, request as nodeRequest, type ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -379,6 +379,31 @@ describe("serve", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it.runIf(process.platform !== "win32")(
+    "should not follow static asset symlinks outside the configured root",
+    async () => {
+      const root = await mkdtemp(join(tmpdir(), "askr-node-assets-"));
+      const outside = await mkdtemp(join(tmpdir(), "askr-node-outside-"));
+      await writeFile(join(outside, "secret.txt"), "secret");
+      await symlink(outside, join(root, "escape"));
+      const served = await serve(
+        { fetch: async () => new Response("application") },
+        { assets: { root }, signals: false },
+      );
+      try {
+        const response = await fetch(`${served.url}/escape/secret.txt`);
+        expect(response.status).toBe(404);
+        expect(await response.text()).toBe("Not Found");
+      } finally {
+        await served.close();
+        await Promise.all([
+          rm(root, { recursive: true, force: true }),
+          rm(outside, { recursive: true, force: true }),
+        ]);
+      }
+    },
+  );
 
   it("should close the application exactly once across concurrent shutdown", async () => {
     let closes = 0;

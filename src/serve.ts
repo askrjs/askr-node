@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { realpath, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import type { ServerApp } from "@askrjs/server";
@@ -31,7 +31,7 @@ export async function serve(
   app: ServerApp & { close?: () => void | Promise<void> },
   options: ServeOptions = {},
 ): Promise<ServedApplication> {
-  const root = options.assets ? resolve(options.assets.root) : undefined;
+  const root = options.assets ? await realpath(resolve(options.assets.root)) : undefined;
   const handlerOptions = {
     allowedHosts: [options.host ?? "127.0.0.1", "localhost"],
   };
@@ -67,17 +67,22 @@ export async function serve(
     const method = request.method ?? "GET";
     if (root && (method === "GET" || method === "HEAD") && isAssetPath(pathname)) {
       const extension = extname(pathname).toLowerCase();
-      const candidate = resolve(root, `.${pathname}`);
-      const inside = candidate.startsWith(`${root}${sep}`);
+      const unresolvedCandidate = resolve(root, `.${pathname}`);
+      const inside = unresolvedCandidate.startsWith(`${root}${sep}`);
+      let candidate: string | undefined;
       let file: Awaited<ReturnType<typeof stat>> | undefined;
       if (inside && extension !== ".map") {
         try {
+          candidate = await realpath(unresolvedCandidate);
+          if (!candidate.startsWith(`${root}${sep}`)) candidate = undefined;
+          if (!candidate) throw new Error("Asset path escapes the configured root.");
           file = await stat(candidate);
         } catch {
+          candidate = undefined;
           file = undefined;
         }
       }
-      if (!file?.isFile()) {
+      if (!candidate || !file?.isFile()) {
         response
           .writeHead(404, {
             "content-type": "text/plain; charset=utf-8",
