@@ -3,6 +3,7 @@ import type { PerMessageDeflateOptions } from "ws";
 
 export interface NodeWebSocketOptions {
   readonly maxPayload?: number;
+  readonly maxRejectionBodyBytes?: number;
   readonly perMessageDeflate?: boolean | PerMessageDeflateOptions;
   readonly allowedOrigins?: readonly string[];
 }
