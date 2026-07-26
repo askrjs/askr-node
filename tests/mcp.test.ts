@@ -64,6 +64,24 @@ describe("MCP stdio", () => {
     expect(io.lines[0]).toMatchObject({ id: null, error: { code: -32700 } });
   });
 
+  it("should reject oversized input before a newline can be buffered", async () => {
+    const io = harness();
+    const connection = connectMcpStdio(createMcpServer({ name: "stdio", version: "1" }), {
+      dependencies: undefined,
+      maxLineBytes: 128,
+      ...io,
+    });
+    connections.push(connection);
+    io.input.write("x".repeat(64));
+    expect(io.lines).toEqual([]);
+    io.input.write("x".repeat(65));
+    await until(() => io.lines.length === 1);
+    expect(io.lines[0]).toMatchObject({
+      id: null,
+      error: { code: -32600, message: "Request line exceeds the configured limit" },
+    });
+  });
+
   it("should bound line size and concurrent request handling", async () => {
     const io = harness();
     let release: (() => void) | undefined;

@@ -1,7 +1,6 @@
 import type { AuthContext } from "@askrjs/auth";
 import type { McpServer } from "@askrjs/server/mcp";
 import type { Readable, Writable } from "node:stream";
-import { createInterface } from "node:readline";
 
 export interface McpStdioOptions<Dependencies = undefined> {
   dependencies: Dependencies;
@@ -34,7 +33,6 @@ export function connectMcpStdio<Dependencies>(
   const input = options.input ?? process.stdin;
   const output = options.output ?? process.stdout;
   const diagnostics = options.diagnostics ?? process.stderr;
-  const lines = createInterface({ input, crlfDelay: Infinity, terminal: false });
   const controllers = new Map<string | number, AbortController>();
   const sessionId = crypto.randomUUID();
   let finish!: () => void;
@@ -49,6 +47,7 @@ export function connectMcpStdio<Dependencies>(
   if (!Number.isInteger(maxConcurrency) || maxConcurrency <= 0)
     throw new TypeError("MCP maxConcurrency must be a positive integer.");
   let active = 0;
+  let cleanupInput = () => undefined;
   const write = (message: unknown) =>
     new Promise<void>((resolve, reject) => {
       output.write(`${JSON.stringify(message)}\n`, (error) => (error ? reject(error) : resolve()));
@@ -56,7 +55,7 @@ export function connectMcpStdio<Dependencies>(
   const close = async () => {
     if (ended) return closed;
     ended = true;
-    lines.close();
+    cleanupInput();
     for (const controller of controllers.values()) controller.abort();
     controllers.clear();
     mcp.terminateSession(sessionId);
@@ -64,15 +63,7 @@ export function connectMcpStdio<Dependencies>(
     return closed;
   };
   options.signal?.addEventListener("abort", () => void close(), { once: true });
-  lines.on("line", (line) => {
-    if (Buffer.byteLength(line) > maxLineBytes) {
-      void write({
-        jsonrpc: "2.0",
-        id: null,
-        error: { code: -32600, message: "Request line exceeds the configured limit" },
-      }).catch(() => void close());
-      return;
-    }
+  const handleLine = (line: string) => {
     if (active >= maxConcurrency) {
       void write({
         jsonrpc: "2.0",
@@ -135,12 +126,62 @@ export function connectMcpStdio<Dependencies>(
       .finally(() => {
         active -= 1;
       });
-  });
-  lines.once("close", () => {
+  };
+  const lineBuffer = Buffer.allocUnsafe(maxLineBytes);
+  let lineBytes = 0;
+  let discardingOversizedLine = false;
+  const rejectOversizedLine = () => {
+    void write({
+      jsonrpc: "2.0",
+      id: null,
+      error: { code: -32600, message: "Request line exceeds the configured limit" },
+    }).catch(() => void close());
+  };
+  const onData = (chunk: string | Buffer | Uint8Array) => {
+    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    let offset = 0;
+    while (offset < bytes.byteLength) {
+      const newline = bytes.indexOf(0x0a, offset);
+      const end = newline < 0 ? bytes.byteLength : newline;
+      const segmentBytes = end - offset;
+      if (!discardingOversizedLine) {
+        if (lineBytes + segmentBytes > maxLineBytes) {
+          discardingOversizedLine = true;
+          lineBytes = 0;
+          rejectOversizedLine();
+        } else if (segmentBytes > 0) {
+          bytes.copy(lineBuffer, lineBytes, offset, end);
+          lineBytes += segmentBytes;
+        }
+      }
+      if (newline < 0) break;
+      if (!discardingOversizedLine) {
+        const length =
+          lineBytes > 0 && lineBuffer[lineBytes - 1] === 0x0d ? lineBytes - 1 : lineBytes;
+        handleLine(lineBuffer.subarray(0, length).toString("utf8"));
+      }
+      lineBytes = 0;
+      discardingOversizedLine = false;
+      offset = newline + 1;
+    }
+  };
+  const finishInput = () => {
     if (!ended) {
+      if (!discardingOversizedLine && lineBytes > 0) {
+        handleLine(lineBuffer.subarray(0, lineBytes).toString("utf8"));
+      }
       ended = true;
+      cleanupInput();
       finish();
     }
-  });
+  };
+  input.on("data", onData);
+  input.once("end", finishInput);
+  input.once("close", finishInput);
+  cleanupInput = () => {
+    input.off("data", onData);
+    input.off("end", finishInput);
+    input.off("close", finishInput);
+  };
   return { closed, close };
 }
