@@ -64,7 +64,7 @@
     "@types/node": "^26.0.0",
     "@types/ws": "^8.18.1",
     "publint": "^0.3.21",
-    "typescript": "^6.0.0",
+    "typescript": "^7.0.2",
     "vite-plus": "^0.2.4",
     "vitest": "^4.0.0"
   },
