@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { PerMessageDeflateOptions } from "ws";
 
 export interface NodeWebSocketOptions {
+  readonly closeTimeout?: number;
   readonly maxPayload?: number;
   readonly maxRejectionBodyBytes?: number;
   readonly perMessageDeflate?: boolean | PerMessageDeflateOptions;
@@ -9,11 +10,11 @@ export interface NodeWebSocketOptions {
 }
 
 export interface NodeHandlerOptions {
-  baseUrl?: string;
-  allowedHosts?: readonly string[];
+  readonly baseUrl?: string;
+  readonly allowedHosts?: readonly string[];
 }
 
-export interface ListenOptions {
+export interface ListenOptions extends NodeHandlerOptions {
   port?: number;
   host?: string;
   allowPublicBind?: boolean;

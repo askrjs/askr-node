@@ -48,7 +48,12 @@ export async function writeNodeResponse(
   target.statusCode = response.status;
   target.statusMessage = response.statusText;
   writeHeaders(response, target);
-  if (!response.body || method === "HEAD") {
+  if (method === "HEAD") {
+    void response.body?.cancel("HEAD responses do not include a body").catch(() => undefined);
+    target.end();
+    return;
+  }
+  if (!response.body) {
     target.end();
     return;
   }
@@ -64,7 +69,7 @@ export async function writeNodeResponse(
       if (disconnected) return;
       const part = await reader.read();
       if (part.done || disconnected) break;
-      if (!target.write(Buffer.from(part.value))) await waitForDrain(target);
+      if (!target.write(part.value)) await waitForDrain(target);
     }
     if (!disconnected) target.end();
   } catch (error) {
@@ -73,5 +78,6 @@ export async function writeNodeResponse(
     target.destroy(error instanceof Error ? error : undefined);
   } finally {
     target.off("close", onClose);
+    reader.releaseLock();
   }
 }
