@@ -43,10 +43,12 @@
     "access": "public"
   },
   "scripts": {
+    "bench": "vitest bench --run",
+    "bench:http": "vitest bench --run benches/http.bench.ts",
     "build": "vp pack",
     "fmt": "vp fmt .",
     "lint": "vp lint .",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "test": "vp test run",
     "test:publint": "publint",
     "pack:check": "node tests/package-artifacts.js",
@@ -58,7 +60,7 @@
     "@askrjs/auth": ">=0.0.8 <0.1.0",
     "@askrjs/server": ">=0.0.11 <0.1.0",
     "@types/ws": "^8.18.1",
-    "ws": "^8.21.2"
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@askrjs/schema": ">=0.0.5 <0.1.0",

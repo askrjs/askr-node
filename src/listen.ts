@@ -1,9 +1,11 @@
+import { addAbortListener } from "node:events";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { ServerApp } from "@askrjs/server";
 import type { ListenOptions } from "./contracts.js";
-import { resolveBindHost } from "./bind.js";
+import { handlerOptionsForHost, resolveBindHost } from "./bind.js";
 import { createNodeHandler } from "./handler.js";
+import { applyServerTimeouts } from "./server-options.js";
 import { installWebSockets } from "./websocket.js";
 
 export type ListeningServer = Server & {
@@ -11,14 +13,11 @@ export type ListeningServer = Server & {
 };
 
 export function listen(app: ServerApp, options: ListenOptions = {}): Promise<ListeningServer> {
+  options.signal?.throwIfAborted();
   const host = resolveBindHost(options);
-  const handlerOptions = {
-    allowedHosts: [host, "localhost"],
-  };
+  const handlerOptions = handlerOptionsForHost(options, host);
   const server = createServer(createNodeHandler(app, handlerOptions));
-  if (options.requestTimeout !== undefined) server.requestTimeout = options.requestTimeout;
-  if (options.headersTimeout !== undefined) server.headersTimeout = options.headersTimeout;
-  if (options.keepAliveTimeout !== undefined) server.keepAliveTimeout = options.keepAliveTimeout;
+  applyServerTimeouts(server, options);
   const webSockets = options.websocket
     ? installWebSockets(
         server,
@@ -30,21 +29,39 @@ export function listen(app: ServerApp, options: ListenOptions = {}): Promise<Lis
   if (webSockets) {
     const nativeClose = server.close.bind(server);
     server.close = ((callback?: (error?: Error) => void) => {
-      webSockets.close();
-      return nativeClose(callback);
+      let remaining = 2;
+      let closeError: Error | undefined;
+      const complete = (error?: Error) => {
+        closeError ??= error;
+        remaining -= 1;
+        if (remaining === 0) callback?.(closeError);
+      };
+      nativeClose(complete);
+      void webSockets.close().then(() => complete(), complete);
+      return server;
     }) as Server["close"];
   }
   const close = () => server.close();
-  options.signal?.addEventListener("abort", close, { once: true });
-  server.once("close", () => options.signal?.removeEventListener("abort", close));
+  const abortListener = options.signal ? addAbortListener(options.signal, close) : undefined;
+  const disposeAbortListener = () => abortListener?.[Symbol.dispose]();
+  server.once("close", disposeAbortListener);
   return new Promise((resolve, reject) => {
+    const onClose = () => {
+      server.off("error", onError);
+      reject(
+        options.signal?.reason ?? new Error("Node server closed before it started listening."),
+      );
+    };
     const onError = (error: Error) => {
-      options.signal?.removeEventListener("abort", close);
+      server.off("close", onClose);
+      disposeAbortListener();
       reject(error);
     };
     server.once("error", onError);
+    server.once("close", onClose);
     server.listen(options.port ?? 0, host, options.backlog, () => {
       server.off("error", onError);
+      server.off("close", onClose);
       resolve(server as ListeningServer);
     });
   });

@@ -1,19 +1,23 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ServerApp } from "@askrjs/server";
 import type { NodeHandler, NodeHandlerOptions } from "./contracts.js";
-import { NodeRequestError, requestFromNode } from "./request.js";
+import { NodeRequestError, prepareNodeHandlerOptions, requestFromNode } from "./request.js";
 import { writeNodeResponse } from "./response.js";
 
 function minimalError(response: ServerResponse, error: unknown): void {
-  if (response.headersSent) {
+  if (response.headersSent || response.destroyed) {
     response.destroy(error instanceof Error ? error : undefined);
     return;
   }
-  const clientError = error instanceof NodeRequestError;
-  response.statusCode = clientError ? 400 : 500;
-  response.statusMessage = clientError ? "Bad Request" : "Internal Server Error";
-  response.setHeader("content-type", "text/plain; charset=utf-8");
-  response.end(clientError ? "Bad Request" : "Internal Server Error");
+  try {
+    const clientError = error instanceof NodeRequestError;
+    response.statusCode = clientError ? 400 : 500;
+    response.statusMessage = clientError ? "Bad Request" : "Internal Server Error";
+    response.setHeader("content-type", "text/plain; charset=utf-8");
+    response.end(clientError ? "Bad Request" : "Internal Server Error");
+  } catch {
+    response.destroy(error instanceof Error ? error : undefined);
+  }
 }
 
 function attachAbort(
@@ -37,16 +41,48 @@ function attachAbort(
   };
 }
 
-export function createNodeHandler(app: ServerApp, options: NodeHandlerOptions = {}): NodeHandler {
+async function handleNodeRequest(
+  app: ServerApp,
+  preparedOptions: ReturnType<typeof prepareNodeHandlerOptions>,
+  request: IncomingMessage,
+  response: ServerResponse,
+  signal: AbortSignal,
+  cleanup: () => void,
+  next?: (error?: unknown) => void,
+): Promise<void> {
+  try {
+    const webRequest = requestFromNode(request, preparedOptions, signal);
+    const webResponse = await app.fetch(webRequest);
+    await writeNodeResponse(webResponse, response, request.method);
+  } catch (error) {
+    if (!next) {
+      minimalError(response, error);
+      return;
+    }
+    try {
+      next(error);
+    } catch (nextError) {
+      minimalError(response, nextError);
+    }
+  } finally {
+    cleanup();
+  }
+}
+
+export function createNodeHandler(app: ServerApp, options: NodeHandlerOptions): NodeHandler {
+  const preparedOptions = prepareNodeHandlerOptions(options);
   return (request, response, next) => {
     const controller = new AbortController();
     const cleanup = attachAbort(request, response, controller);
-    Promise.resolve()
-      .then(() => requestFromNode(request, options, controller.signal))
-      .then((webRequest) => app.fetch(webRequest))
-      .then((webResponse) => writeNodeResponse(webResponse, response, request.method))
-      .catch((error) => (next ? next(error) : minimalError(response, error)))
-      .finally(cleanup);
+    void handleNodeRequest(
+      app,
+      preparedOptions,
+      request,
+      response,
+      controller.signal,
+      cleanup,
+      next,
+    );
   };
 }
 

@@ -28,7 +28,14 @@ createServer(createNodeHandler(app, { baseUrl: "http://localhost:3000" })).liste
 
 `createNodeHandler` also works as Connect middleware because it accepts an optional `next`
 callback. It preserves streaming bodies, repeated `Set-Cookie` headers, aborts, backpressure,
-status text, and HEAD responses.
+status text, and HEAD responses. `next` receives adapter failures; application responses, including
+`404`, remain owned by the `ServerApp` and do not fall through.
+
+Every handler must have a trusted URL boundary. Pass `baseUrl` when the external origin is fixed,
+or `allowedHosts` when the request `Host` determines the origin. Host names are canonicalized and
+compared case-insensitively; entries without a port allow that host on any port, while entries with
+a port require that exact authority. Absolute-form request targets must retain the trusted origin,
+and ambiguous network-path targets are rejected.
 
 ## Listen directly
 
@@ -48,8 +55,12 @@ Pass an `AbortSignal` to integrate shutdown with your process lifecycle.
 
 Enable the built-in `ws` transport with `websocket: true`. It defaults to a
 1 MiB maximum message payload with compression disabled; pass
-`websocket: { maxPayload, maxRejectionBodyBytes, perMessageDeflate }` to override
-those settings. Rejected upgrade bodies are capped at 64 KiB by default.
+`websocket: { closeTimeout, maxPayload, maxRejectionBodyBytes, perMessageDeflate }` to override
+those settings. Rejected upgrade bodies are capped at 64 KiB by default. Shutdown gives clients five
+seconds to complete the close handshake by default, then terminates any remaining connections.
+Upgrades require an `Origin`. The request origin is allowed by default; set
+`websocket.allowedOrigins` to a canonical allowlist when trusted browser origins differ from the
+application origin.
 
 ```ts
 router.ws("/echo", (socket) => {
@@ -77,8 +88,26 @@ await running.close();
 ```
 
 `serve` handles static assets and closes both the HTTP server and the application during shutdown.
+When an asset root is configured, extension-bearing `GET` and `HEAD` paths are reserved for static
+files: missing files return `404` without falling through to application routing, source maps are not
+served, and resolved files must remain inside the configured root. Fingerprinted files under
+`/assets/` receive immutable caching; other files receive `no-cache`.
 Both `listen` and `serve` bind to `127.0.0.1` by default. A non-loopback
-`host` also requires `allowPublicBind: true` so public exposure is explicit.
+`host` also requires `allowPublicBind: true` so public exposure is explicit. Public listeners should
+declare every external host name through `allowedHosts`; the bind host and `localhost` remain allowed
+automatically:
+
+```ts
+await serve(app, {
+  host: "0.0.0.0",
+  allowPublicBind: true,
+  allowedHosts: ["app.example.com"],
+});
+```
+
+`listen` and `serve` fail before binding when their `AbortSignal` is already aborted. Later aborts
+start shutdown. `serve().close()` is idempotent, waits for HTTP and WebSocket closure, and then closes
+the application exactly once.
 
 ## MCP over stdio
 
@@ -90,4 +119,6 @@ await connection.closed;
 ```
 
 Protocol messages use stdin/stdout; diagnostics remain isolated on stderr. Authentication may be
-provided directly or resolved from the process environment for each message.
+provided directly or resolved from the process environment for each message. Closing stdin, calling
+`connection.close()`, or aborting its signal detaches the transport, cancels active requests,
+terminates the MCP session, and prevents late protocol output.
