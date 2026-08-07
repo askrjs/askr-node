@@ -64,7 +64,7 @@
   },
   "devDependencies": {
     "@askrjs/schema": ">=0.0.5 <0.1.0",
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.2.0",
     "publint": "^0.3.23",
     "typescript": "^7.0.2",
     "vite-plus": "^0.2.8",
