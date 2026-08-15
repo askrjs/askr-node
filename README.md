@@ -31,6 +31,13 @@ callback. It preserves streaming bodies, repeated `Set-Cookie` headers, aborts, 
 status text, and HEAD responses. `next` receives adapter failures; application responses, including
 `404`, remain owned by the `ServerApp` and do not fall through.
 
+Every dispatched request includes `CLIENT_ADDRESS_HEADER` (`x-askr-client-address`) set from the
+TCP socket peer. The adapter overwrites a client-supplied value and does not interpret
+`X-Forwarded-For`, so applications can use this header for direct-listener IP controls without
+trusting attacker-controlled forwarding metadata. Deployments behind a reverse proxy see the
+proxy peer by default. Supporting original client addresses requires an explicit trusted-proxy
+boundary; do not read `X-Forwarded-For` directly in application code.
+
 Every handler must have a trusted URL boundary. Pass `baseUrl` when the external origin is fixed,
 or `allowedHosts` when the request `Host` determines the origin. Host names are canonicalized and
 compared case-insensitively; entries without a port allow that host on any port, while entries with

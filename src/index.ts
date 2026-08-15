@@ -1,3 +1,4 @@
+export * from "./client-address.js";
 export * from "./contracts.js";
 export * from "./handler.js";
 export * from "./listen.js";
