@@ -75,6 +75,7 @@ describe("Node adapter", () => {
               let connected = false;
               socket.once("connect", () => {
                 connected = true;
+                socket.resume();
                 socket.write(
                   `POST / HTTP/1.1\r\nHost: 127.0.0.1:${address.port}\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhe`,
                 );
