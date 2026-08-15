@@ -8,10 +8,24 @@ import { createNodeHandler } from "./handler.js";
 import { applyServerTimeouts } from "./server-options.js";
 import { installWebSockets } from "./websocket.js";
 
+/** A Node HTTP server that is guaranteed to be listening for connections. */
 export type ListeningServer = Server & {
   address(): AddressInfo | string | null;
 };
 
+/**
+ * Starts a Node HTTP server for an `@askrjs/server` application and resolves once it is listening.
+ *
+ * Optionally installs WebSocket support and wires up graceful shutdown on
+ * `options.signal`. Unlike {@link serve}, this does not serve static assets
+ * or install OS signal handlers.
+ *
+ * @param app - The application to serve.
+ * @param options - Listen options such as port, host, timeouts, and WebSocket support.
+ * @returns A promise resolving to the listening server once it has bound successfully.
+ * @example
+ * const server = await listen(app, { port: 3000 });
+ */
 export function listen(app: ServerApp, options: ListenOptions = {}): Promise<ListeningServer> {
   options.signal?.throwIfAborted();
   const host = resolveBindHost(options);
