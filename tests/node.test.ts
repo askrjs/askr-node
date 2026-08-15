@@ -5,6 +5,7 @@ import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRouter, createServerApp } from "@askrjs/server";
+import { runAdapterConformance } from "@askrjs/server/testing";
 import { describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { formatHostForUrl } from "../src/bind.js";
@@ -26,7 +27,79 @@ async function withServer(
   }
 }
 
+function closeListeningServer(server: Awaited<ReturnType<typeof listen>>): Promise<void> {
+  server.closeAllConnections();
+  return new Promise<void>((resolve) => server.close(() => resolve()));
+}
+
 describe("Node adapter", () => {
+  it("should satisfy shared cancellation and timeout conformance over real sockets", async () => {
+    const report = await runAdapterConformance(
+      {
+        async abortStreamingResponse(response, cleanup) {
+          const server = await listen({ fetch: async () => response });
+          const address = server.address();
+          if (!address || typeof address === "string") throw new Error("Expected TCP address");
+          let closing: Promise<void> | undefined;
+          const close = () => (closing ??= closeListeningServer(server));
+          cleanup.addEventListener("abort", () => void close(), { once: true });
+          try {
+            await new Promise<void>((resolve, reject) => {
+              const request = get(`http://127.0.0.1:${address.port}`, (incoming) => {
+                incoming.once("data", () => {
+                  incoming.destroy();
+                  resolve();
+                });
+                incoming.once("error", reject);
+              });
+              request.once("error", reject);
+            });
+          } finally {
+            await close();
+          }
+        },
+        async enforceRequestTimeout(app, cleanup) {
+          const server = await listen(app, { headersTimeout: 100, requestTimeout: 100 });
+          const address = server.address();
+          if (!address || typeof address === "string") throw new Error("Expected TCP address");
+          const socket = createConnection({ host: "127.0.0.1", port: address.port });
+          let closing: Promise<void> | undefined;
+          const close = () => (closing ??= closeListeningServer(server));
+          const abort = () => {
+            socket.destroy();
+            void close();
+          };
+          cleanup.addEventListener("abort", abort, { once: true });
+          try {
+            await new Promise<void>((resolve, reject) => {
+              let connected = false;
+              socket.once("connect", () => {
+                connected = true;
+                socket.write(
+                  `POST / HTTP/1.1\r\nHost: 127.0.0.1:${address.port}\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhe`,
+                );
+              });
+              socket.once("close", () => resolve());
+              socket.once("error", (error) => {
+                if (!connected) reject(error);
+              });
+            });
+          } finally {
+            cleanup.removeEventListener("abort", abort);
+            socket.destroy();
+            await close();
+          }
+        },
+      },
+      { deadlineMs: 2_000 },
+    );
+
+    expect(report).toEqual({
+      streamingResponseCancellation: "passed",
+      incompleteRequestTimeout: "passed",
+    });
+  });
+
   it("should normalize client addresses without conflating distinct peers", () => {
     expect(CLIENT_ADDRESS_HEADER).toBe("x-askr-client-address");
     expect([
