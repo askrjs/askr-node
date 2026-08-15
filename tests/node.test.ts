@@ -8,7 +8,8 @@ import { createRouter, createServerApp } from "@askrjs/server";
 import { describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { formatHostForUrl } from "../src/bind.js";
-import { createNodeHandler, listen, serve } from "../src/index.js";
+import { normalizeClientAddress } from "../src/client-address.js";
+import { CLIENT_ADDRESS_HEADER, createNodeHandler, listen, serve } from "../src/index.js";
 import { writeNodeResponse } from "../src/response.js";
 
 async function withServer(
@@ -26,13 +27,34 @@ async function withServer(
 }
 
 describe("Node adapter", () => {
+  it("should normalize client addresses without conflating distinct peers", () => {
+    expect(CLIENT_ADDRESS_HEADER).toBe("x-askr-client-address");
+    expect([
+      normalizeClientAddress(undefined),
+      normalizeClientAddress(""),
+      normalizeClientAddress("127.0.0.1"),
+      normalizeClientAddress("::1"),
+      normalizeClientAddress("2001:db8::10"),
+      normalizeClientAddress("::ffff:192.0.2.4"),
+      normalizeClientAddress("::FFFF:198.51.100.9"),
+    ]).toEqual([
+      "unknown",
+      "unknown",
+      "127.0.0.1",
+      "::1",
+      "2001:db8::10",
+      "192.0.2.4",
+      "198.51.100.9",
+    ]);
+  });
+
   it("should overwrite spoofed client addresses with the TCP peer", async () => {
     const observed: Array<{ address: string | null; forwarded: string | null }> = [];
     await withServer(
       {
         async fetch(request) {
           observed.push({
-            address: request.headers.get("x-askr-client-address"),
+            address: request.headers.get(CLIENT_ADDRESS_HEADER),
             forwarded: request.headers.get("x-forwarded-for"),
           });
           return new Response();

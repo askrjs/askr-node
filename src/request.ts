@@ -1,5 +1,6 @@
 import type { IncomingMessage } from "node:http";
 import { isIP } from "node:net";
+import { CLIENT_ADDRESS_HEADER, normalizeClientAddress } from "./client-address.js";
 import type { NodeHandlerOptions } from "./contracts.js";
 
 export class NodeRequestError extends TypeError {}
@@ -116,6 +117,7 @@ function requestHeaders(request: IncomingMessage): Headers {
       headers.set(key, value);
     }
   }
+  headers.set(CLIENT_ADDRESS_HEADER, normalizeClientAddress(request.socket.remoteAddress));
   return headers;
 }
 
