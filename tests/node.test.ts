@@ -26,6 +26,37 @@ async function withServer(
 }
 
 describe("Node adapter", () => {
+  it("should overwrite spoofed client addresses with the TCP peer", async () => {
+    const observed: Array<{ address: string | null; forwarded: string | null }> = [];
+    await withServer(
+      {
+        async fetch(request) {
+          observed.push({
+            address: request.headers.get("x-askr-client-address"),
+            forwarded: request.headers.get("x-forwarded-for"),
+          });
+          return new Response();
+        },
+      },
+      async (origin) => {
+        for (const spoofed of ["198.51.100.1", "203.0.113.200"]) {
+          const response = await fetch(origin, {
+            headers: {
+              "x-askr-client-address": spoofed,
+              "x-forwarded-for": spoofed,
+            },
+          });
+          expect(response.status).toBe(200);
+        }
+      },
+    );
+
+    expect(observed).toEqual([
+      { address: "127.0.0.1", forwarded: "198.51.100.1" },
+      { address: "127.0.0.1", forwarded: "203.0.113.200" },
+    ]);
+  });
+
   it("should bind to loopback by default and require public bind opt-in", async () => {
     const app = { fetch: async () => new Response() };
     const local = await listen(app);
