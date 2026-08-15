@@ -58,7 +58,7 @@
   },
   "dependencies": {
     "@askrjs/auth": ">=0.0.8 <0.1.0",
-    "@askrjs/server": ">=0.0.11 <0.1.0",
+    "@askrjs/server": ">=0.0.18 <0.1.0",
     "@types/ws": "^8.18.1",
     "ws": "^8.21.3"
   },
