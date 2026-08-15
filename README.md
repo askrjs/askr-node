@@ -58,6 +58,12 @@ const server = await listen(app, {
 server.close();
 ```
 
+`listen()` and `serve()` apply timeout options during `http.Server` construction and configure
+Node's incomplete-connection check interval no slower than the smallest finite request/header
+timeout (capped at one second). This makes the authored values enforceable for stalled headers and
+bodies instead of relying on Node's much slower default checking interval. Use explicit finite
+`requestTimeout` and `headersTimeout` values in production; `0` retains Node's disable semantics.
+
 Pass an `AbortSignal` to integrate shutdown with your process lifecycle.
 
 Enable the built-in `ws` transport with `websocket: true`. It defaults to a

@@ -5,7 +5,7 @@ import type { ServerApp } from "@askrjs/server";
 import type { ListenOptions } from "./contracts.js";
 import { handlerOptionsForHost, resolveBindHost } from "./bind.js";
 import { createNodeHandler } from "./handler.js";
-import { applyServerTimeouts } from "./server-options.js";
+import { applyServerTimeouts, resolveServerOptions } from "./server-options.js";
 import { installWebSockets } from "./websocket.js";
 
 /** A Node HTTP server that is guaranteed to be listening for connections. */
@@ -30,7 +30,10 @@ export function listen(app: ServerApp, options: ListenOptions = {}): Promise<Lis
   options.signal?.throwIfAborted();
   const host = resolveBindHost(options);
   const handlerOptions = handlerOptionsForHost(options, host);
-  const server = createServer(createNodeHandler(app, handlerOptions));
+  const server = createServer(
+    resolveServerOptions(options),
+    createNodeHandler(app, handlerOptions),
+  );
   applyServerTimeouts(server, options);
   const webSockets = options.websocket
     ? installWebSockets(

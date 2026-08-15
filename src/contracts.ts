@@ -35,9 +35,9 @@ export interface ListenOptions extends NodeHandlerOptions {
   backlog?: number;
   /** Aborting this signal stops the server. */
   signal?: AbortSignal;
-  /** Node HTTP server `requestTimeout`, in milliseconds. */
+  /** Node HTTP server `requestTimeout`, enforced from server construction, in milliseconds. */
   requestTimeout?: number;
-  /** Node HTTP server `headersTimeout`, in milliseconds. */
+  /** Node HTTP server `headersTimeout`, enforced from server construction, in milliseconds. */
   headersTimeout?: number;
   /** Node HTTP server `keepAliveTimeout`, in milliseconds. */
   keepAliveTimeout?: number;

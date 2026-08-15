@@ -9,7 +9,7 @@ import type { ServeOptions, ServedApplication } from "./contracts.js";
 import { formatHostForUrl, handlerOptionsForHost, resolveBindHost } from "./bind.js";
 import { createNodeHandler } from "./handler.js";
 import { prepareNodeHandlerOptions, resolveNodeRequestUrl } from "./request.js";
-import { applyServerTimeouts } from "./server-options.js";
+import { applyServerTimeouts, resolveServerOptions } from "./server-options.js";
 import { installWebSockets } from "./websocket.js";
 
 const mimeTypes: Readonly<Record<string, string>> = {
@@ -97,7 +97,7 @@ export async function serve(
     },
     handlerOptions,
   );
-  const server = createServer(async (request, response) => {
+  const server = createServer(resolveServerOptions(options), async (request, response) => {
     if (!root) {
       applicationHandler(request, response);
       return;
