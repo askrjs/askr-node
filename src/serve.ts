@@ -45,6 +45,26 @@ function isWithinRoot(root: string, candidate: string): boolean {
   return candidate === root || candidate.startsWith(prefix);
 }
 
+/**
+ * Serves an `@askrjs/server` application over Node HTTP, with optional static
+ * asset serving, WebSocket support, and graceful shutdown on OS signals or an
+ * abort signal.
+ *
+ * Requests for paths with a file extension are first checked against
+ * `options.assets.root` (path-traversal safe, following symlinks) and served
+ * directly with appropriate `content-type`/`cache-control` headers before
+ * falling back to the application handler. HTML responses from the
+ * application get a `no-cache` header when they don't already set
+ * `cache-control`.
+ *
+ * @param app - The application to serve; may expose an optional `close()` for cleanup.
+ * @param options - Serve options such as port, host, static assets, and shutdown signals.
+ * @returns The served application, including its bound `url` and a `close()` for shutdown.
+ * @example
+ * const app = await serve(myApp, { port: 3000, assets: { root: "./public" } });
+ * // ...
+ * await app.close();
+ */
 export async function serve(
   app: ServerApp & { close?: () => void | Promise<void> },
   options: ServeOptions = {},

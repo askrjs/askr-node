@@ -4,20 +4,33 @@ import { randomUUID } from "node:crypto";
 import { addAbortListener } from "node:events";
 import type { Readable, Writable } from "node:stream";
 
+/** Options for {@link connectMcpStdio}. */
 export interface McpStdioOptions<Dependencies = undefined> {
+  /** Application dependencies passed through to each MCP request. */
   dependencies: Dependencies;
+  /** Stream to read newline-delimited JSON-RPC requests from; defaults to `process.stdin`. */
   input?: Readable;
+  /** Stream to write newline-delimited JSON-RPC responses to; defaults to `process.stdout`. */
   output?: Writable;
+  /** Stream that non-protocol errors are reported to; defaults to `process.stderr`. */
   diagnostics?: Writable;
+  /** Aborting this signal closes the connection. */
   signal?: AbortSignal;
+  /** Auth context to use for requests, or a function that derives one from the environment. */
   auth?: AuthContext | ((environment: NodeJS.ProcessEnv) => AuthContext | Promise<AuthContext>);
+  /** Environment passed to the `auth` function; defaults to `process.env`. */
   environment?: NodeJS.ProcessEnv;
+  /** Maximum size, in bytes, of a single input line before it is rejected; defaults to 1 MiB. */
   maxLineBytes?: number;
+  /** Maximum number of requests handled concurrently; defaults to 16. */
   maxConcurrency?: number;
 }
 
+/** A live MCP stdio connection returned by {@link connectMcpStdio}. */
 export interface McpStdioConnection {
+  /** Resolves once the connection has fully closed. */
   readonly closed: Promise<void>;
+  /** Closes the connection, aborting in-flight requests and terminating the MCP session. */
   close(): Promise<void>;
 }
 
@@ -28,6 +41,19 @@ const anonymous: AuthContext = Object.freeze({
   tenant: null,
 });
 
+/**
+ * Connects an MCP server to newline-delimited JSON-RPC over stdio (or any
+ * pair of readable/writable streams).
+ *
+ * Reads one JSON-RPC message per line, dispatches it to `mcp.handle`, and
+ * writes the response back as a line of JSON. Handles request cancellation
+ * notifications, enforces `maxConcurrency` and `maxLineBytes`, and cleans up
+ * the MCP session when the connection closes.
+ *
+ * @param mcp - The MCP server to dispatch requests to.
+ * @param options - Stdio connection options, including dependencies and stream overrides.
+ * @returns A handle exposing `closed` and `close()` for the connection's lifecycle.
+ */
 export function connectMcpStdio<Dependencies>(
   mcp: McpServer<Dependencies>,
   options: McpStdioOptions<Dependencies>,

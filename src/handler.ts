@@ -69,6 +69,18 @@ async function handleNodeRequest(
   }
 }
 
+/**
+ * Wraps an `@askrjs/server` application as a Node-style request handler.
+ *
+ * Converts each incoming `IncomingMessage`/`ServerResponse` pair into a web
+ * `Request`, dispatches it through `app.fetch`, and writes the resulting web
+ * `Response` back to Node. Errors are reported to `next` when provided,
+ * otherwise a minimal 400/500 response is written directly.
+ *
+ * @param app - The application to dispatch requests to.
+ * @param options - Options controlling base URL resolution and host validation.
+ * @returns A handler usable with `http.createServer` or Connect-style middleware.
+ */
 export function createNodeHandler(app: ServerApp, options: NodeHandlerOptions): NodeHandler {
   const preparedOptions = prepareNodeHandlerOptions(options);
   return (request, response, next) => {
