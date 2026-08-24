@@ -4,8 +4,8 @@ import { realpath, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import { pipeline } from "node:stream";
-import * as server from "@askrjs/server";
 import type { ServerApp } from "@askrjs/server";
+import * as serverHttp from "@askrjs/server/http";
 import type { ServeOptions, ServedApplication } from "./contracts.js";
 import { formatHostForUrl, handlerOptionsForHost, resolveBindHost } from "./bind.js";
 import { createNodeHandler } from "./handler.js";
@@ -38,7 +38,7 @@ const mimeTypes: Readonly<Record<string, string>> = {
 };
 
 const parseContentType =
-  (server as { contentType?: (value: string | null) => string | undefined }).contentType ??
+  (serverHttp as { contentType?: (value: string | null) => string | undefined }).contentType ??
   ((value: string | null): string | undefined => {
     if (!value) return undefined;
     const separator = value.indexOf(";");
