@@ -242,6 +242,40 @@ describe("Node adapter", () => {
     expect(() => listen(app, { headersTimeout: 1.5 })).toThrow("non-negative safe integer");
   });
 
+  it("should reject malformed and oversized raw HTTP input before application dispatch", async () => {
+    let dispatches = 0;
+    const server = await listen({
+      fetch: async () => {
+        dispatches += 1;
+        return new Response();
+      },
+    });
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Expected TCP address");
+    const sendRaw = (payload: string) =>
+      new Promise<string>((resolve, reject) => {
+        const socket = createConnection({ host: "127.0.0.1", port: address.port });
+        let response = "";
+        socket.setEncoding("utf8");
+        socket.on("data", (chunk: string) => (response += chunk));
+        socket.once("connect", () => socket.end(payload));
+        socket.once("end", () => resolve(response));
+        socket.once("error", reject);
+      });
+
+    try {
+      await expect(sendRaw("GET / HTTP/1.1\r\nMalformed Header\r\n\r\n")).resolves.toMatch(
+        /^HTTP\/1\.1 400 /,
+      );
+      await expect(
+        sendRaw(`GET / HTTP/1.1\r\nHost: localhost\r\nX-Oversized: ${"x".repeat(20_000)}\r\n\r\n`),
+      ).resolves.toMatch(/^HTTP\/1\.1 431 /);
+      expect(dispatches).toBe(0);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
   it("should exchange text and binary WebSocket messages", async () => {
     const router = createRouter();
     router.ws("/echo/{room}", (socket, context) => {
@@ -1124,6 +1158,36 @@ describe("serve", () => {
     );
     await Promise.all([served.close(), served.close(), served.close()]);
     expect(closes).toBe(1);
+  });
+
+  it("should wait for an in-flight request before completing shutdown", async () => {
+    let markStarted!: () => void;
+    let release!: () => void;
+    const started = new Promise<void>((resolve) => (markStarted = resolve));
+    const released = new Promise<void>((resolve) => (release = resolve));
+    const served = await serve(
+      {
+        async fetch() {
+          markStarted();
+          await released;
+          return new Response("done");
+        },
+      },
+      { signals: false },
+    );
+    const response = fetch(served.url);
+    await started;
+    let closed = false;
+    const closing = served.close().then(() => {
+      closed = true;
+    });
+    await Promise.resolve();
+    expect(closed).toBe(false);
+
+    release();
+    expect(await (await response).text()).toBe("done");
+    await closing;
+    expect(closed).toBe(true);
   });
 
   it("should close the application given a server when it was already stopped externally", async () => {
