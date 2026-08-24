@@ -3,7 +3,7 @@ import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { get, request as nodeRequest, type ServerResponse } from "node:http";
 import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { createRouter, createServerApp } from "@askrjs/server";
 import { runAdapterConformance } from "@askrjs/server/testing";
 import { describe, expect, it } from "vitest";
@@ -1149,6 +1149,51 @@ describe("serve", () => {
       }
     },
   );
+
+  it("should contain percent-encoded parent traversal inside the static root", async () => {
+    const root = await mkdtemp(join(tmpdir(), "askr-node-traversal-root-"));
+    const outside = await mkdtemp(join(tmpdir(), "askr-node-traversal-outside-"));
+    await writeFile(join(outside, "secret.txt"), "secret");
+    const served = await serve(
+      { fetch: async () => new Response("application") },
+      { assets: { root }, signals: false },
+    );
+    const address = served.server.address();
+    if (!address || typeof address === "string") throw new Error("Expected TCP address");
+    const requestPath = (path: string) =>
+      new Promise<{ status: number; body: string }>((resolve, reject) => {
+        const request = nodeRequest({ host: "127.0.0.1", port: address.port, path }, (response) => {
+          const chunks: Buffer[] = [];
+          response.on("data", (chunk: Buffer) => chunks.push(chunk));
+          response.on("end", () =>
+            resolve({
+              status: response.statusCode ?? 0,
+              body: Buffer.concat(chunks).toString(),
+            }),
+          );
+        });
+        request.once("error", reject);
+        request.end();
+      });
+
+    try {
+      const outsideName = basename(outside);
+      await expect(requestPath(`/%2e%2e/${outsideName}/secret.txt`)).resolves.toEqual({
+        status: 404,
+        body: "Not Found",
+      });
+      await expect(requestPath(`/%2e%2e%2f${outsideName}/secret.txt`)).resolves.toEqual({
+        status: 404,
+        body: "Not Found",
+      });
+    } finally {
+      await served.close();
+      await Promise.all([
+        rm(root, { recursive: true, force: true }),
+        rm(outside, { recursive: true, force: true }),
+      ]);
+    }
+  });
 
   it("should close the application exactly once across concurrent shutdown", async () => {
     let closes = 0;
