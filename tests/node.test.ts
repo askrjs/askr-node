@@ -3,7 +3,7 @@ import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { get, request as nodeRequest, type ServerResponse } from "node:http";
 import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { createRouter, createServerApp } from "@askrjs/server";
 import { runAdapterConformance } from "@askrjs/server/testing";
 import { describe, expect, it } from "vitest";
@@ -240,6 +240,40 @@ describe("Node adapter", () => {
     const app = { fetch: async () => new Response() };
     expect(() => listen(app, { requestTimeout: -1 })).toThrow("non-negative safe integer");
     expect(() => listen(app, { headersTimeout: 1.5 })).toThrow("non-negative safe integer");
+  });
+
+  it("should reject malformed and oversized raw HTTP input before application dispatch", async () => {
+    let dispatches = 0;
+    const server = await listen({
+      fetch: async () => {
+        dispatches += 1;
+        return new Response();
+      },
+    });
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Expected TCP address");
+    const sendRaw = (payload: string) =>
+      new Promise<string>((resolve, reject) => {
+        const socket = createConnection({ host: "127.0.0.1", port: address.port });
+        let response = "";
+        socket.setEncoding("utf8");
+        socket.on("data", (chunk: string) => (response += chunk));
+        socket.once("connect", () => socket.end(payload));
+        socket.once("end", () => resolve(response));
+        socket.once("error", reject);
+      });
+
+    try {
+      await expect(sendRaw("GET / HTTP/1.1\r\nMalformed Header\r\n\r\n")).resolves.toMatch(
+        /^HTTP\/1\.1 400 /,
+      );
+      await expect(
+        sendRaw(`GET / HTTP/1.1\r\nHost: localhost\r\nX-Oversized: ${"x".repeat(20_000)}\r\n\r\n`),
+      ).resolves.toMatch(/^HTTP\/1\.1 431 /);
+      expect(dispatches).toBe(0);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 
   it("should exchange text and binary WebSocket messages", async () => {
@@ -1031,6 +1065,50 @@ describe("serve", () => {
     }
   });
 
+  it("should let excluded dotted routes bypass static serving under concurrency", async () => {
+    const root = await mkdtemp(join(tmpdir(), "askr-node-excluded-assets-"));
+    await writeFile(join(root, "app.js"), "asset");
+    let applicationRequests = 0;
+    const served = await serve(
+      {
+        fetch: async (request) => {
+          applicationRequests += 1;
+          return new Response(new URL(request.url).pathname);
+        },
+      },
+      {
+        assets: {
+          root,
+          exclude: (pathname) => pathname.startsWith("/files/"),
+        },
+        signals: false,
+      },
+    );
+
+    try {
+      const responses = await Promise.all(
+        Array.from({ length: 30 }, (_, index) =>
+          fetch(
+            index % 3 === 0
+              ? `${served.url}/app.js`
+              : index % 3 === 1
+                ? `${served.url}/files/report.json`
+                : `${served.url}/files/report%2ejson`,
+          ),
+        ),
+      );
+      const bodies = await Promise.all(responses.map((response) => response.text()));
+
+      expect(bodies.filter((body) => body === "asset")).toHaveLength(10);
+      expect(bodies.filter((body) => body === "/files/report.json")).toHaveLength(10);
+      expect(bodies.filter((body) => body === "/files/report%2ejson")).toHaveLength(10);
+      expect(applicationRequests).toBe(20);
+    } finally {
+      await served.close();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("should disable caching given an HTML application response when no policy is authored", async () => {
     const served = await serve(
       {
@@ -1072,6 +1150,51 @@ describe("serve", () => {
     },
   );
 
+  it("should contain percent-encoded parent traversal inside the static root", async () => {
+    const root = await mkdtemp(join(tmpdir(), "askr-node-traversal-root-"));
+    const outside = await mkdtemp(join(tmpdir(), "askr-node-traversal-outside-"));
+    await writeFile(join(outside, "secret.txt"), "secret");
+    const served = await serve(
+      { fetch: async () => new Response("application") },
+      { assets: { root }, signals: false },
+    );
+    const address = served.server.address();
+    if (!address || typeof address === "string") throw new Error("Expected TCP address");
+    const requestPath = (path: string) =>
+      new Promise<{ status: number; body: string }>((resolve, reject) => {
+        const request = nodeRequest({ host: "127.0.0.1", port: address.port, path }, (response) => {
+          const chunks: Buffer[] = [];
+          response.on("data", (chunk: Buffer) => chunks.push(chunk));
+          response.on("end", () =>
+            resolve({
+              status: response.statusCode ?? 0,
+              body: Buffer.concat(chunks).toString(),
+            }),
+          );
+        });
+        request.once("error", reject);
+        request.end();
+      });
+
+    try {
+      const outsideName = basename(outside);
+      await expect(requestPath(`/%2e%2e/${outsideName}/secret.txt`)).resolves.toEqual({
+        status: 404,
+        body: "Not Found",
+      });
+      await expect(requestPath(`/%2e%2e%2f${outsideName}/secret.txt`)).resolves.toEqual({
+        status: 404,
+        body: "Not Found",
+      });
+    } finally {
+      await served.close();
+      await Promise.all([
+        rm(root, { recursive: true, force: true }),
+        rm(outside, { recursive: true, force: true }),
+      ]);
+    }
+  });
+
   it("should close the application exactly once across concurrent shutdown", async () => {
     let closes = 0;
     const served = await serve(
@@ -1080,6 +1203,36 @@ describe("serve", () => {
     );
     await Promise.all([served.close(), served.close(), served.close()]);
     expect(closes).toBe(1);
+  });
+
+  it("should wait for an in-flight request before completing shutdown", async () => {
+    let markStarted!: () => void;
+    let release!: () => void;
+    const started = new Promise<void>((resolve) => (markStarted = resolve));
+    const released = new Promise<void>((resolve) => (release = resolve));
+    const served = await serve(
+      {
+        async fetch() {
+          markStarted();
+          await released;
+          return new Response("done");
+        },
+      },
+      { signals: false },
+    );
+    const response = fetch(served.url);
+    await started;
+    let closed = false;
+    const closing = served.close().then(() => {
+      closed = true;
+    });
+    await Promise.resolve();
+    expect(closed).toBe(false);
+
+    release();
+    expect(await (await response).text()).toBe("done");
+    await closing;
+    expect(closed).toBe(true);
   });
 
   it("should close the application given a server when it was already stopped externally", async () => {
