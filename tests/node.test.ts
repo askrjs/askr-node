@@ -1031,6 +1031,50 @@ describe("serve", () => {
     }
   });
 
+  it("should let excluded dotted routes bypass static serving under concurrency", async () => {
+    const root = await mkdtemp(join(tmpdir(), "askr-node-excluded-assets-"));
+    await writeFile(join(root, "app.js"), "asset");
+    let applicationRequests = 0;
+    const served = await serve(
+      {
+        fetch: async (request) => {
+          applicationRequests += 1;
+          return new Response(new URL(request.url).pathname);
+        },
+      },
+      {
+        assets: {
+          root,
+          exclude: (pathname) => pathname.startsWith("/files/"),
+        },
+        signals: false,
+      },
+    );
+
+    try {
+      const responses = await Promise.all(
+        Array.from({ length: 30 }, (_, index) =>
+          fetch(
+            index % 3 === 0
+              ? `${served.url}/app.js`
+              : index % 3 === 1
+                ? `${served.url}/files/report.json`
+                : `${served.url}/files/report%2ejson`,
+          ),
+        ),
+      );
+      const bodies = await Promise.all(responses.map((response) => response.text()));
+
+      expect(bodies.filter((body) => body === "asset")).toHaveLength(10);
+      expect(bodies.filter((body) => body === "/files/report.json")).toHaveLength(10);
+      expect(bodies.filter((body) => body === "/files/report%2ejson")).toHaveLength(10);
+      expect(applicationRequests).toBe(20);
+    } finally {
+      await served.close();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("should disable caching given an HTML application response when no policy is authored", async () => {
     const served = await serve(
       {

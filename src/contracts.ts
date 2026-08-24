@@ -48,7 +48,11 @@ export interface ListenOptions extends NodeHandlerOptions {
 /** Options for {@link serve}, extending {@link ListenOptions} with static asset serving and shutdown behavior. */
 export interface ServeOptions extends ListenOptions {
   /** Serves static files from this directory before falling back to the application. */
-  readonly assets?: { readonly root: string };
+  readonly assets?: {
+    readonly root: string;
+    /** Returns true when an extension-bearing path must bypass static serving. */
+    readonly exclude?: (pathname: string) => boolean;
+  };
   /** OS signals that trigger a graceful shutdown; pass `false` to disable automatic shutdown handling. */
   readonly signals?: false | readonly NodeJS.Signals[];
 }

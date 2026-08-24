@@ -4,6 +4,7 @@ import { realpath, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import { pipeline } from "node:stream";
+import * as server from "@askrjs/server";
 import type { ServerApp } from "@askrjs/server";
 import type { ServeOptions, ServedApplication } from "./contracts.js";
 import { formatHostForUrl, handlerOptionsForHost, resolveBindHost } from "./bind.js";
@@ -35,6 +36,15 @@ const mimeTypes: Readonly<Record<string, string>> = {
   ".woff": "font/woff",
   ".woff2": "font/woff2",
 };
+
+const parseContentType =
+  (server as { contentType?: (value: string | null) => string | undefined }).contentType ??
+  ((value: string | null): string | undefined => {
+    if (!value) return undefined;
+    const separator = value.indexOf(";");
+    const type = (separator === -1 ? value : value.slice(0, separator)).trim();
+    return type ? type.toLowerCase() : undefined;
+  });
 
 function isAssetPath(pathname: string): boolean {
   return extname(pathname) !== "";
@@ -78,12 +88,8 @@ export async function serve(
     {
       async fetch(request, dispatchOptions) {
         const result = await app.fetch(request, dispatchOptions);
-        const contentType = result.headers.get("content-type");
-        if (
-          !result.headers.has("cache-control") &&
-          contentType !== null &&
-          /^text\/html(?:;|$)/iu.test(contentType)
-        ) {
+        const responseContentType = parseContentType(result.headers.get("content-type"));
+        if (!result.headers.has("cache-control") && responseContentType === "text/html") {
           const headers = new Headers(result.headers);
           headers.set("cache-control", "no-cache");
           return new Response(result.body, {
@@ -112,7 +118,11 @@ export async function serve(
       return;
     }
     const method = request.method ?? "GET";
-    if ((method === "GET" || method === "HEAD") && isAssetPath(pathname)) {
+    if (
+      (method === "GET" || method === "HEAD") &&
+      isAssetPath(pathname) &&
+      !options.assets?.exclude?.(pathname)
+    ) {
       const extension = extname(pathname).toLowerCase();
       const unresolvedCandidate = resolve(root, `.${pathname}`);
       const inside = isWithinRoot(root, unresolvedCandidate);

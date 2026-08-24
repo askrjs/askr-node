@@ -94,7 +94,10 @@ import { serve } from "@askrjs/node";
 
 const running = await serve(app, {
   port: 3000,
-  assets: { root: "./dist/client" },
+  assets: {
+    root: "./dist/client",
+    exclude: (pathname) => pathname.startsWith("/files/"),
+  },
 });
 
 await running.close();
@@ -103,7 +106,9 @@ await running.close();
 `serve` handles static assets and closes both the HTTP server and the application during shutdown.
 When an asset root is configured, extension-bearing `GET` and `HEAD` paths are reserved for static
 files: missing files return `404` without falling through to application routing, source maps are not
-served, and resolved files must remain inside the configured root. Fingerprinted files under
+served, and resolved files must remain inside the configured root. Use `assets.exclude(pathname)` to
+bypass static interception for dotted application routes; the predicate receives the decoded URL
+pathname. Fingerprinted files under
 `/assets/` receive immutable caching; other files receive `no-cache`.
 Both `listen` and `serve` bind to `127.0.0.1` by default. A non-loopback
 `host` also requires `allowPublicBind: true` so public exposure is explicit. Public listeners should
