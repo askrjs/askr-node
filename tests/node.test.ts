@@ -1065,6 +1065,49 @@ describe("serve", () => {
     }
   });
 
+  it("should keep serving after clients disconnect before and during static asset streaming", async () => {
+    const root = await mkdtemp(join(tmpdir(), "askr-node-disconnect-assets-"));
+    await writeFile(join(root, "large-12345678.js"), new Uint8Array(8 * 1024 * 1024));
+    const served = await serve(
+      { fetch: async () => new Response("app-alive") },
+      { assets: { root }, signals: false },
+    );
+    const address = served.server.address();
+    if (!address || typeof address === "string") throw new Error("Expected TCP address");
+
+    try {
+      for (let index = 0; index < 10; index += 1) {
+        const socket = createConnection(address.port, "127.0.0.1");
+        await once(socket, "connect");
+        socket.write(
+          `GET /large-12345678.js HTTP/1.1\r\nHost: 127.0.0.1:${address.port}\r\nConnection: close\r\n\r\n`,
+        );
+        socket.destroy();
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        const request = nodeRequest(`${served.url}/large-12345678.js`);
+        request.once("response", (response) => {
+          response.once("data", () => {
+            response.destroy();
+            resolve();
+          });
+          response.once("error", () => resolve());
+        });
+        request.once("error", reject);
+        request.end();
+      });
+
+      expect(await (await fetch(`${served.url}/page`)).text()).toBe("app-alive");
+      const asset = await fetch(`${served.url}/large-12345678.js`);
+      expect(asset.status).toBe(200);
+      expect((await asset.arrayBuffer()).byteLength).toBe(8 * 1024 * 1024);
+    } finally {
+      await served.close();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("should let excluded dotted routes bypass static serving under concurrency", async () => {
     const root = await mkdtemp(join(tmpdir(), "askr-node-excluded-assets-"));
     await writeFile(join(root, "app.js"), "asset");
