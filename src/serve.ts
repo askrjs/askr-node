@@ -144,6 +144,7 @@ export async function serve(
         }
       }
       if (!candidate || !file?.isFile()) {
+        if (response.destroyed || response.writableEnded) return;
         response
           .writeHead(404, {
             "content-type": "text/plain; charset=utf-8",
@@ -152,6 +153,7 @@ export async function serve(
           .end("Not Found");
         return;
       }
+      if (response.destroyed || response.writableEnded) return;
       response.writeHead(200, {
         "content-type": mimeTypes[extension] ?? "application/octet-stream",
         "content-length": Number(file.size),
@@ -162,7 +164,15 @@ export async function serve(
         "x-content-type-options": "nosniff",
       });
       if (method === "HEAD") response.end();
-      else pipeline(createReadStream(candidate), response, () => undefined);
+      else {
+        const source = createReadStream(candidate);
+        const stopSource = () => source.destroy();
+        response.once("close", stopSource);
+        pipeline(source, response, (error) => {
+          response.off("close", stopSource);
+          if (error) source.destroy();
+        });
+      }
       return;
     }
     applicationHandler(request, response);
