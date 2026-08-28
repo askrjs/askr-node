@@ -168,14 +168,10 @@ export async function serve(
         const source = createReadStream(candidate);
         const stopSource = () => source.destroy();
         response.once("close", stopSource);
-        try {
-          pipeline(source, response, () => {
-            response.off("close", stopSource);
-          });
-        } catch {
+        pipeline(source, response, (error) => {
           response.off("close", stopSource);
-          source.destroy();
-        }
+          if (error) source.destroy();
+        });
       }
       return;
     }
