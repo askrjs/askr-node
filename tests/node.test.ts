@@ -402,12 +402,11 @@ describe("Node adapter", () => {
   });
 
   it("should reject the request given an untrusted Host or request-target authority", async () => {
-    const server = await listen(
-      createServerApp({ routes: [{ path: "/", handler: (ctx) => ctx.ok() }] }),
-      {
-        host: "127.0.0.1",
-      },
-    );
+    const router = createRouter();
+    router.get("/", (ctx) => ctx.ok());
+    const server = await listen(createServerApp({ router }), {
+      host: "127.0.0.1",
+    });
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("Expected TCP address");
     const send = (path: string, host: string) =>
