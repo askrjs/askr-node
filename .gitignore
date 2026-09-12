@@ -57,3 +57,6 @@ inventory.md
 # OS
 .DS_Store
 Thumbs.db
+
+# Local agent state and worktrees
+.claude/
