@@ -16,6 +16,7 @@ class BenchmarkRequest extends EventEmitter {
   readonly complete = true;
   readonly headers = { host: "127.0.0.1" };
   readonly method = "GET";
+  readonly socket = { remoteAddress: "127.0.0.1" };
   readonly url = "/json";
 
   resume(): this {
