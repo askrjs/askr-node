@@ -1,13 +1,16 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join, normalize } from "node:path";
+import { readPackRecord } from "./pack-result.js";
 
 const npmCli = process.env.npm_execpath;
 if (!npmCli) throw new Error("npm_execpath is unavailable; run this check through npm");
-const result = JSON.parse(
-  execFileSync(process.execPath, [npmCli, "pack", "--ignore-scripts", "--dry-run", "--json"], {
-    encoding: "utf8",
-  }),
+const result = readPackRecord(
+  JSON.parse(
+    execFileSync(process.execPath, [npmCli, "pack", "--ignore-scripts", "--dry-run", "--json"], {
+      encoding: "utf8",
+    }),
+  ),
 );
 
 const manifest = JSON.parse(readFileSync("package.json", "utf8"));
@@ -17,11 +20,7 @@ if (JSON.stringify(dependencies) !== JSON.stringify(allowedDependencies)) {
   throw new Error(`Unexpected production dependencies: ${dependencies.join(", ")}`);
 }
 
-if (result.length !== 1) {
-  throw new Error(`Expected one packed artifact, received ${result.length}.`);
-}
-
-const packedFiles = new Set(result[0].files.map(({ path }) => normalize(path)));
+const packedFiles = new Set(result.files.map(({ path }) => normalize(path)));
 for (const required of [
   "LICENSE",
   "README.md",
@@ -45,7 +44,7 @@ for (const file of packedFiles) {
 }
 const sourceMappingPattern = /[#@]\s*sourceMappingURL=([^\s*]+)/gu;
 
-for (const file of result[0].files) {
+for (const file of result.files) {
   if (!/\.(?:css|d\.ts|js)$/u.test(file.path)) continue;
 
   const source = readFileSync(file.path, "utf8");
