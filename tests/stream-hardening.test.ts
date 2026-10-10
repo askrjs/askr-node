@@ -1,7 +1,7 @@
 import { once } from "node:events";
 import { request } from "node:http";
 import { createConnection } from "node:net";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import WebSocket from "ws";
 import { listen } from "../src/index.js";
 
