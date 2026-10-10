@@ -11,7 +11,7 @@ export interface NodeWebSocketOptions {
   readonly maxRejectionBodyBytes?: number;
   /** Enables or configures the permessage-deflate WebSocket extension. */
   readonly perMessageDeflate?: boolean | PerMessageDeflateOptions;
-  /** Origins allowed to open a WebSocket connection; when omitted, all origins are allowed. */
+  /** Origins allowed to open a WebSocket connection; defaults to the request's origin. */
   readonly allowedOrigins?: readonly string[];
 }
 

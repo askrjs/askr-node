@@ -10,6 +10,7 @@ function minimalError(response: ServerResponse, error: unknown): void {
     return;
   }
   try {
+    for (const name of response.getHeaderNames()) response.removeHeader(name);
     const clientError = error instanceof NodeRequestError;
     response.statusCode = clientError ? 400 : 500;
     response.statusMessage = clientError ? "Bad Request" : "Internal Server Error";

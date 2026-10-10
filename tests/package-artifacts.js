@@ -27,6 +27,11 @@ for (const required of [
   "package.json",
   "dist/index.js",
   "dist/index.d.ts",
+  "dist/mcp.js",
+  "dist/mcp.d.ts",
+  "docs/0.5.0-api.md",
+  "docs/0.5.0-hardening.md",
+  "CHANGELOG.md",
 ]) {
   if (!packedFiles.has(normalize(required)))
     throw new Error(`Packed artifact is missing ${required}.`);
@@ -36,6 +41,9 @@ for (const file of packedFiles) {
     file !== normalize("LICENSE") &&
     file !== normalize("README.md") &&
     file !== normalize("package.json") &&
+    file !== normalize("CHANGELOG.md") &&
+    !file.startsWith(`${normalize("docs")}/`) &&
+    !file.startsWith(`${normalize("docs")}\\`) &&
     !file.startsWith(`${normalize("dist")}\\`) &&
     !file.startsWith(`${normalize("dist")}/`)
   ) {
