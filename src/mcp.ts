@@ -3,6 +3,8 @@ import type { McpServer } from "@askrjs/server/mcp";
 import { randomUUID } from "node:crypto";
 import { addAbortListener } from "node:events";
 import type { Readable, Writable } from "node:stream";
+import { diagnosticReporter } from "./diagnostics.js";
+import { streamWriter } from "./stream-writer.js";
 
 /** Options for {@link connectMcpStdio}. */
 export interface McpStdioOptions<Dependencies = undefined> {
@@ -74,23 +76,15 @@ export function connectMcpStdio<Dependencies>(
     throw new TypeError("MCP maxLineBytes must be a positive integer.");
   if (!Number.isSafeInteger(maxConcurrency) || maxConcurrency <= 0)
     throw new TypeError("MCP maxConcurrency must be a positive integer.");
+  const lineBuffer = Buffer.allocUnsafe(maxLineBytes);
   let active = 0;
   let abortListener: ReturnType<typeof addAbortListener> | undefined;
   let cleanupTransport = () => undefined;
-  const report = (error: unknown) => {
-    try {
-      diagnostics.write(
-        `MCP stdio error: ${error instanceof Error ? error.message : String(error)}\n`,
-      );
-    } catch {
-      // The diagnostic stream is best-effort and must not affect protocol shutdown.
-    }
-  };
-  const write = (message: unknown) => {
-    if (ended) return Promise.reject(new Error("MCP stdio connection is closed."));
-    return new Promise<void>((resolve, reject) => {
-      output.write(`${JSON.stringify(message)}\n`, (error) => (error ? reject(error) : resolve()));
-    });
+  const report = diagnosticReporter(diagnostics);
+  const writeOutput = streamWriter(output);
+  const write = async (message: unknown) => {
+    if (ended) throw new Error("MCP stdio connection is closed.");
+    return writeOutput(`${JSON.stringify(message)}\n`);
   };
   const close = async () => {
     if (ended) return closed;
@@ -164,6 +158,7 @@ export function connectMcpStdio<Dependencies>(
           typeof options.auth === "function"
             ? await options.auth(environment)
             : (options.auth ?? anonymous);
+        if (ended || controller?.signal.aborted) return;
         const result = await mcp.handle(message, {
           dependencies: options.dependencies,
           auth,
@@ -175,7 +170,7 @@ export function connectMcpStdio<Dependencies>(
         });
         if (result !== undefined && !ended) await write(result);
       } catch (error) {
-        if (!ended) {
+        if (!ended && !controller?.signal.aborted) {
           report(error);
           if (typeof id === "string" || typeof id === "number") {
             await write({
@@ -200,7 +195,6 @@ export function connectMcpStdio<Dependencies>(
         active -= 1;
       });
   };
-  const lineBuffer = Buffer.allocUnsafe(maxLineBytes);
   const decoder = new TextDecoder("utf-8", { fatal: true });
   let lineBytes = 0;
   let discardingOversizedLine = false;

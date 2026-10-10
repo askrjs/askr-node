@@ -69,17 +69,24 @@ export function listen(app: ServerApp, options: ListenOptions = {}): Promise<Lis
         options.signal?.reason ?? new Error("Node server closed before it started listening."),
       );
     };
-    const onError = (error: Error) => {
+    const onError = (error: unknown) => {
+      server.off("error", onError);
       server.off("close", onClose);
       disposeAbortListener();
-      reject(error);
+      void Promise.resolve(webSockets?.close())
+        .catch(() => undefined)
+        .then(() => reject(error));
     };
     server.once("error", onError);
     server.once("close", onClose);
-    server.listen(options.port ?? 0, host, options.backlog, () => {
-      server.off("error", onError);
-      server.off("close", onClose);
-      resolve(server as ListeningServer);
-    });
+    try {
+      server.listen(options.port ?? 0, host, options.backlog, () => {
+        server.off("error", onError);
+        server.off("close", onClose);
+        resolve(server as ListeningServer);
+      });
+    } catch (error) {
+      onError(error);
+    }
   });
 }
