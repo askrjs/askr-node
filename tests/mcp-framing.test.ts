@@ -1,7 +1,7 @@
 import type { McpServer } from "@askrjs/server/mcp";
 import { PassThrough } from "node:stream";
 import { setImmediate } from "node:timers/promises";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { connectMcpStdio } from "../src/mcp.js";
 
 async function framing(chunks: Array<string | Buffer>, maxLineBytes = 1024) {

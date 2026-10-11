@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/node",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Node http adapter for @askrjs/server",
   "keywords": [
     "askr",
@@ -45,8 +45,8 @@
     "access": "public"
   },
   "scripts": {
-    "bench": "vitest bench --run",
-    "bench:http": "vitest bench --run benches/http.bench.ts",
+    "bench": "vp test bench --run",
+    "bench:http": "vp test bench --run benches/http.bench.ts",
     "build": "vp pack",
     "fmt": "vp fmt .",
     "lint": "vp lint .",
@@ -61,13 +61,13 @@
     "test:packed": "node tests/package-consumers.js"
   },
   "dependencies": {
-    "@askrjs/auth": ">=0.4.0 <0.5.0",
-    "@askrjs/server": ">=0.4.0 <0.5.0",
+    "@askrjs/auth": ">=0.5.0 <0.6.0",
+    "@askrjs/server": ">=0.5.0 <0.6.0",
     "@types/ws": "^8.18.1",
     "ws": "^8.21.3"
   },
   "devDependencies": {
-    "@askrjs/schema": ">=0.4.0 <0.5.0",
+    "@askrjs/schema": ">=0.5.0 <0.6.0",
     "@types/node": "24.19.2",
     "@typescript/typescript6": "npm:typescript@6.0.2",
     "@vitest/coverage-v8": "4.1.11",

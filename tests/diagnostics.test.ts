@@ -1,6 +1,6 @@
 import { Writable } from "node:stream";
 import { setImmediate } from "node:timers/promises";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { diagnosticReporter } from "../src/diagnostics.js";
 
 describe("best-effort MCP diagnostics", () => {

@@ -2,7 +2,7 @@ import { once } from "node:events";
 import { PassThrough } from "node:stream";
 import { createMcpServer, type McpServer } from "@askrjs/server/mcp";
 import { schema } from "@askrjs/schema";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { connectMcpStdio } from "../src/mcp.js";
 
 const connections: Array<{ close(): Promise<void> }> = [];
