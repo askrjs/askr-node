@@ -1,6 +1,6 @@
 import { getEventListeners } from "node:events";
 import { setImmediate } from "node:timers/promises";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { listen, serve } from "../src/index.js";
 
 describe("startup resource ownership", () => {
