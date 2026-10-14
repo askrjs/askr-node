@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.0 - 2026-10-10
+
 ### Breaking changes
 
 - Name the supported root exports explicitly. Remove `normalizeClientAddress`,
@@ -28,3 +30,8 @@
   coverage and strict installed-package checks with TypeScript 6 and 7.
 - Ship migration and hardening evidence with the package. Align qualification
   types to Node 24 and update compatible development tooling advisories.
+
+### Development
+
+- First-party development workflows use Vite+; specialized compiler, runtime,
+  browser, and package checks remain part of validation.

@@ -1,7 +1,7 @@
 import type { McpServer } from "@askrjs/server/mcp";
 import { getEventListeners } from "node:events";
 import { PassThrough } from "node:stream";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { connectMcpStdio } from "../src/mcp.js";
 
 describe("MCP setup ownership", () => {

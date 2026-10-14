@@ -7,7 +7,7 @@ import { basename, join } from "node:path";
 import { createServerApp } from "@askrjs/server";
 import { createRouter } from "@askrjs/server/router";
 import { runAdapterConformance } from "@askrjs/server/testing";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import WebSocket from "ws";
 import { formatHostForUrl } from "../src/bind.js";
 import { normalizeClientAddress } from "../src/client-address.js";

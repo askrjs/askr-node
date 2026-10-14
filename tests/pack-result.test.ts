@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { readPackRecord } from "./pack-result.js";
 
 const record = { filename: "package.tgz", files: [{ path: "dist/index.js" }] };

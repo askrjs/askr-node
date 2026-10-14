@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import assert from "node:assert/strict";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { bench, describe, type BenchOptions } from "vitest";
+import { bench, describe, type BenchOptions } from "vite-plus/test";
 import type { ServedApplication } from "../src/contracts.js";
 import { createNodeHandler } from "../src/handler.js";
 import { prepareNodeHandlerOptions, requestFromNode } from "../src/request.js";
