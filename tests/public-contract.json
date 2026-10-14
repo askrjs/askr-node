@@ -1,0 +1,37 @@
+{
+  "exportKeys": [".", "./mcp", "./package.json"],
+  "entrypoints": {
+    "@askrjs/node": {
+      "values": ["CLIENT_ADDRESS_HEADER", "createNodeHandler", "listen", "serve"],
+      "types": [
+        "ListenOptions",
+        "ListeningServer",
+        "NodeHandler",
+        "NodeHandlerOptions",
+        "ServeOptions",
+        "ServedApplication"
+      ]
+    },
+    "@askrjs/node/mcp": {
+      "values": ["connectMcpStdio"],
+      "types": ["McpStdioConnection", "McpStdioOptions"]
+    }
+  },
+  "removed": ["ConnectNext", "NodeWebSocketOptions", "normalizeClientAddress"],
+  "privateSubpaths": [
+    "bind",
+    "client-address",
+    "diagnostics",
+    "contracts",
+    "handler",
+    "listen",
+    "request",
+    "response",
+    "serve",
+    "server-options",
+    "websocket",
+    "websocket-rejection",
+    "stream-writer",
+    "dist/index.js"
+  ]
+}

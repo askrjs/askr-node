@@ -4,6 +4,7 @@ import type { ServerApp, ServerContext, WebSocketHandler, WebSocketLike } from "
 import { WebSocket, WebSocketServer } from "ws";
 import type { NodeHandlerOptions, NodeWebSocketOptions } from "./contracts.js";
 import { prepareNodeHandlerOptions, requestFromNode } from "./request.js";
+import { readRejectionBody } from "./websocket-rejection.js";
 
 function subscribe<T extends unknown[]>(
   socket: WebSocket,
@@ -68,50 +69,13 @@ function normalizeHttpOrigin(value: string): string {
   return parsed.origin;
 }
 
-async function readRejectionBody(
-  response: Response,
-  maxBytes: number,
-): Promise<Buffer | undefined> {
-  const lengthHeader = response.headers.get("content-length");
-  const declaredLength = lengthHeader === null ? undefined : Number(lengthHeader);
-  if (
-    declaredLength !== undefined &&
-    Number.isFinite(declaredLength) &&
-    declaredLength > maxBytes
-  ) {
-    await response.body
-      ?.cancel("WebSocket rejection body exceeded maxRejectionBodyBytes")
-      .catch(() => undefined);
-    return undefined;
-  }
-  if (!response.body) return Buffer.alloc(0);
-  const reader = response.body.getReader();
-  const chunks: Buffer[] = [];
-  let length = 0;
-  try {
-    while (true) {
-      const part = await reader.read();
-      if (part.done) return Buffer.concat(chunks, length);
-      length += part.value.byteLength;
-      if (length > maxBytes) {
-        await reader
-          .cancel("WebSocket rejection body exceeded maxRejectionBodyBytes")
-          .catch(() => undefined);
-        return undefined;
-      }
-      chunks.push(Buffer.from(part.value));
-    }
-  } finally {
-    reader.releaseLock();
-  }
-}
-
 async function rejectUpgrade(
   socket: Duplex,
   response: Response,
   maxBodyBytes: number,
+  signal: AbortSignal,
 ): Promise<void> {
-  const buffered = await readRejectionBody(response, maxBodyBytes);
+  const buffered = await readRejectionBody(response, maxBodyBytes, signal);
   if (!buffered) {
     response = new Response("WebSocket rejection body exceeded configured limit", { status: 500 });
   }
@@ -204,6 +168,7 @@ export function installWebSockets(
             socket,
             new Response("Forbidden", { status: 403 }),
             maxRejectionBodyBytes,
+            controller.signal,
           );
           return;
         }
@@ -217,8 +182,12 @@ export function installWebSockets(
             },
           },
         });
+        if (controller.signal.aborted) {
+          void response.body?.cancel(controller.signal.reason).catch(() => undefined);
+          return;
+        }
         if (!accepted || response !== accepted.response) {
-          await rejectUpgrade(socket, response, maxRejectionBodyBytes);
+          await rejectUpgrade(socket, response, maxRejectionBodyBytes, controller.signal);
           return;
         }
         webSockets.handleUpgrade(request, socket, head, (webSocket) => {

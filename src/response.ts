@@ -45,9 +45,18 @@ export async function writeNodeResponse(
   target: ServerResponse,
   method?: string,
 ): Promise<void> {
-  target.statusCode = response.status;
-  target.statusMessage = response.statusText;
-  writeHeaders(response, target);
+  if (target.destroyed || target.writableEnded) {
+    void response.body?.cancel(disconnectError()).catch(() => undefined);
+    return;
+  }
+  try {
+    target.statusCode = response.status;
+    target.statusMessage = response.statusText;
+    writeHeaders(response, target);
+  } catch (error) {
+    void response.body?.cancel(error).catch(() => undefined);
+    throw error;
+  }
   if (method === "HEAD") {
     void response.body?.cancel("HEAD responses do not include a body").catch(() => undefined);
     target.end();
@@ -74,7 +83,8 @@ export async function writeNodeResponse(
     if (!disconnected) target.end();
   } catch (error) {
     if (disconnected) return;
-    await reader.cancel(error).catch(() => undefined);
+    // Application cleanup must not delay destroying a failed transport or releasing its reader.
+    void reader.cancel(error).catch(() => undefined);
     target.destroy(error instanceof Error ? error : undefined);
   } finally {
     target.off("close", onClose);

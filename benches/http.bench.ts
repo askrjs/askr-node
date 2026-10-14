@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
+import assert from "node:assert/strict";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { bench, describe, type BenchOptions } from "vitest";
+import { bench, describe, type BenchOptions } from "vite-plus/test";
 import type { ServedApplication } from "../src/contracts.js";
 import { createNodeHandler } from "../src/handler.js";
 import { prepareNodeHandlerOptions, requestFromNode } from "../src/request.js";
@@ -145,6 +146,7 @@ describe("Node HTTP server", () => {
     "should serve an empty application response over HTTP",
     async () => {
       const response = await fetch(served.url);
+      assert.equal(response.status, 204);
       await response.arrayBuffer();
     },
     {
@@ -165,6 +167,7 @@ describe("Node HTTP server", () => {
     "should serve a dynamic route with an asset root over HTTP",
     async () => {
       const response = await fetch(`${served.url}/route`);
+      assert.equal(response.status, 204);
       await response.arrayBuffer();
     },
     {
@@ -184,15 +187,16 @@ describe("Node HTTP server", () => {
   bench(
     "should serve a small static asset over HTTP",
     async () => {
-      const response = await fetch(`${served.url}/package.json`);
-      await response.arrayBuffer();
+      const response = await fetch(`${served.url}/bench-asset.txt`);
+      assert.equal(response.status, 200);
+      assert.equal((await response.arrayBuffer()).byteLength, 1024);
     },
     {
       ...BENCH_OPTIONS,
       setup: async () => {
         served = await serve(
           { fetch: async () => new Response(null, { status: 500 }) },
-          { assets: { root: "." }, signals: false },
+          { assets: { root: "tests/fixtures" }, signals: false },
         );
       },
       teardown: async () => {
@@ -205,6 +209,7 @@ describe("Node HTTP server", () => {
     "should reject a missing static asset over HTTP",
     async () => {
       const response = await fetch(`${served.url}/missing.js`);
+      assert.equal(response.status, 404);
       await response.arrayBuffer();
     },
     {
@@ -228,6 +233,7 @@ describe("Node HTTP server", () => {
         body: JSON_BODY,
         method: "POST",
       });
+      assert.equal(response.status, 204);
       await response.arrayBuffer();
     },
     {

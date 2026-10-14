@@ -16,11 +16,13 @@ npm install @askrjs/server @askrjs/node
 
 ```ts
 import { createServer } from "node:http";
-import { createServerApp, json } from "@askrjs/server";
+import { createServerApp } from "@askrjs/server";
+import { createRouter } from "@askrjs/server/router";
+import { json } from "@askrjs/server/http";
 import { createNodeHandler } from "@askrjs/node";
 
 const app = createServerApp({
-  routes: [{ path: "/health", handler: () => json({ status: "ok" }) }],
+  router: createRouter().get("/health", () => json({ status: "ok" })),
 });
 
 createServer(createNodeHandler(app, { baseUrl: "http://localhost:3000" })).listen(3000);
@@ -140,3 +142,8 @@ Protocol messages use stdin/stdout; diagnostics remain isolated on stderr. Authe
 provided directly or resolved from the process environment for each message. Closing stdin, calling
 `connection.close()`, or aborting its signal detaches the transport, cancels active requests,
 terminates the MCP session, and prevents late protocol output.
+
+## 0.5.0 package contract and hardening evidence
+
+See [API decisions and migration](docs/0.5.0-api.md) and
+[transport hardening evidence](docs/0.5.0-hardening.md).

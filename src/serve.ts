@@ -5,7 +5,6 @@ import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import { pipeline } from "node:stream";
 import type { ServerApp } from "@askrjs/server";
-import * as serverHttp from "@askrjs/server/http";
 import type { ServeOptions, ServedApplication } from "./contracts.js";
 import { formatHostForUrl, handlerOptionsForHost, resolveBindHost } from "./bind.js";
 import { createNodeHandler } from "./handler.js";
@@ -37,14 +36,12 @@ const mimeTypes: Readonly<Record<string, string>> = {
   ".woff2": "font/woff2",
 };
 
-const parseContentType =
-  (serverHttp as { contentType?: (value: string | null) => string | undefined }).contentType ??
-  ((value: string | null): string | undefined => {
-    if (!value) return undefined;
-    const separator = value.indexOf(";");
-    const type = (separator === -1 ? value : value.slice(0, separator)).trim();
-    return type ? type.toLowerCase() : undefined;
-  });
+function parseContentType(value: string | null): string | undefined {
+  if (!value) return undefined;
+  const separator = value.indexOf(";");
+  const type = (separator === -1 ? value : value.slice(0, separator)).trim();
+  return type ? type.toLowerCase() : undefined;
+}
 
 function isAssetPath(pathname: string): boolean {
   return extname(pathname) !== "";

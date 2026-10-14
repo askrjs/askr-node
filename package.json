@@ -1,6 +1,6 @@
 {
   "name": "@askrjs/node",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Node http adapter for @askrjs/server",
   "keywords": [
     "askr",
@@ -23,7 +23,9 @@
   },
   "files": [
     "dist/**/*.js",
-    "dist/**/*.d.ts"
+    "dist/**/*.d.ts",
+    "docs/**/*.md",
+    "CHANGELOG.md"
   ],
   "type": "module",
   "main": "./dist/index.js",
@@ -43,8 +45,8 @@
     "access": "public"
   },
   "scripts": {
-    "bench": "vitest bench --run",
-    "bench:http": "vitest bench --run benches/http.bench.ts",
+    "bench": "vp test bench --run",
+    "bench:http": "vp test bench --run benches/http.bench.ts",
     "build": "vp pack",
     "fmt": "vp fmt .",
     "lint": "vp lint .",
@@ -52,21 +54,25 @@
     "test": "vp test run",
     "test:publint": "publint",
     "pack:check": "node tests/package-artifacts.js",
-    "check": "npm run lint && npm run typecheck && npm test && npm run build && npm run test:publint && npm run pack:check",
+    "check": "npm run lint && npm run typecheck && npm run test:coverage && npm run build && npm run test:publint && npm run pack:check && npm run test:packed",
     "prepack": "npm run build",
-    "prepublishOnly": "npm run check"
+    "prepublishOnly": "npm run check",
+    "test:coverage": "vp test run --coverage",
+    "test:packed": "node tests/package-consumers.js"
   },
   "dependencies": {
-    "@askrjs/auth": ">=0.4.0 <0.5.0",
-    "@askrjs/server": ">=0.4.0 <0.5.0",
+    "@askrjs/auth": ">=0.5.0 <0.6.0",
+    "@askrjs/server": ">=0.5.0 <0.6.0",
     "@types/ws": "^8.18.1",
     "ws": "^8.21.3"
   },
   "devDependencies": {
-    "@askrjs/schema": ">=0.4.0 <0.5.0",
-    "@types/node": "^26.3.0",
+    "@askrjs/schema": ">=0.5.0 <0.6.0",
+    "@types/node": "24.19.2",
+    "@typescript/typescript6": "npm:typescript@6.0.2",
+    "@vitest/coverage-v8": "4.1.11",
     "publint": "^0.3.24",
-    "typescript": "^7.0.2",
+    "typescript": "7.0.2",
     "vite-plus": "^0.3.1",
     "vitest": "^4.1.11"
   },

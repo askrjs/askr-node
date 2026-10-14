@@ -1,13 +1,16 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join, normalize } from "node:path";
+import { readPackRecord } from "./pack-result.js";
 
 const npmCli = process.env.npm_execpath;
 if (!npmCli) throw new Error("npm_execpath is unavailable; run this check through npm");
-const result = JSON.parse(
-  execFileSync(process.execPath, [npmCli, "pack", "--ignore-scripts", "--dry-run", "--json"], {
-    encoding: "utf8",
-  }),
+const result = readPackRecord(
+  JSON.parse(
+    execFileSync(process.execPath, [npmCli, "pack", "--ignore-scripts", "--dry-run", "--json"], {
+      encoding: "utf8",
+    }),
+  ),
 );
 
 const manifest = JSON.parse(readFileSync("package.json", "utf8"));
@@ -17,17 +20,18 @@ if (JSON.stringify(dependencies) !== JSON.stringify(allowedDependencies)) {
   throw new Error(`Unexpected production dependencies: ${dependencies.join(", ")}`);
 }
 
-if (result.length !== 1) {
-  throw new Error(`Expected one packed artifact, received ${result.length}.`);
-}
-
-const packedFiles = new Set(result[0].files.map(({ path }) => normalize(path)));
+const packedFiles = new Set(result.files.map(({ path }) => normalize(path)));
 for (const required of [
   "LICENSE",
   "README.md",
   "package.json",
   "dist/index.js",
   "dist/index.d.ts",
+  "dist/mcp.js",
+  "dist/mcp.d.ts",
+  "docs/0.5.0-api.md",
+  "docs/0.5.0-hardening.md",
+  "CHANGELOG.md",
 ]) {
   if (!packedFiles.has(normalize(required)))
     throw new Error(`Packed artifact is missing ${required}.`);
@@ -37,6 +41,9 @@ for (const file of packedFiles) {
     file !== normalize("LICENSE") &&
     file !== normalize("README.md") &&
     file !== normalize("package.json") &&
+    file !== normalize("CHANGELOG.md") &&
+    !file.startsWith(`${normalize("docs")}/`) &&
+    !file.startsWith(`${normalize("docs")}\\`) &&
     !file.startsWith(`${normalize("dist")}\\`) &&
     !file.startsWith(`${normalize("dist")}/`)
   ) {
@@ -45,7 +52,7 @@ for (const file of packedFiles) {
 }
 const sourceMappingPattern = /[#@]\s*sourceMappingURL=([^\s*]+)/gu;
 
-for (const file of result[0].files) {
+for (const file of result.files) {
   if (!/\.(?:css|d\.ts|js)$/u.test(file.path)) continue;
 
   const source = readFileSync(file.path, "utf8");
