@@ -143,7 +143,7 @@ provided directly or resolved from the process environment for each message. Clo
 `connection.close()`, or aborting its signal detaches the transport, cancels active requests,
 terminates the MCP session, and prevents late protocol output.
 
-## 0.5.0 preparation
+## 0.5.0 package contract and hardening evidence
 
 See [API decisions and migration](docs/0.5.0-api.md) and
 [transport hardening evidence](docs/0.5.0-hardening.md).
