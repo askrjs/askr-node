@@ -70,10 +70,10 @@
     "@askrjs/schema": ">=0.5.0 <0.6.0",
     "@types/node": "24.19.2",
     "@typescript/typescript6": "npm:typescript@6.0.2",
-    "@vitest/coverage-v8": "4.1.11",
+    "@vitest/coverage-v8": "4.1.12",
     "publint": "^0.3.24",
     "typescript": "7.0.2",
-    "vite-plus": "^0.3.1",
+    "vite-plus": "^1.4.0",
     "vitest": "^4.1.11"
   },
   "engines": {
