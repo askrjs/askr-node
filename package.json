@@ -63,18 +63,23 @@
   "dependencies": {
     "@askrjs/auth": ">=0.5.0 <0.6.0",
     "@askrjs/server": ">=0.5.0 <0.6.0",
-    "@types/ws": "^8.18.1",
-    "ws": "^8.21.3"
+    "@types/ws": "^8.18.2",
+    "ws": "^8.22.1"
   },
   "devDependencies": {
     "@askrjs/schema": ">=0.5.0 <0.6.0",
     "@types/node": "24.19.2",
-    "@typescript/typescript6": "npm:typescript@6.0.2",
-    "@vitest/coverage-v8": "4.1.11",
-    "publint": "^0.3.24",
-    "typescript": "7.0.2",
-    "vite-plus": "^0.3.1",
-    "vitest": "^4.1.11"
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "@vitest/coverage-v8": "5.0.5",
+    "publint": "^0.3.25",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0",
+    "vite-plus": "1.4.0",
+    "vitest": "5.0.5"
+  },
+  "overrides": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0",
+    "vitest": "5.0.5"
   },
   "engines": {
     "node": ">=24.0.0"
