@@ -70,6 +70,7 @@
     "@askrjs/schema": ">=0.5.0 <0.6.0",
     "@types/node": "24.19.2",
     "@typescript/typescript6": "npm:typescript@6.0.2",
+    "@typescript/native-preview": "^7.0.0-dev",
     "@vitest/coverage-v8": "5.0.5",
     "publint": "^0.3.24",
     "typescript": "7.0.2",
