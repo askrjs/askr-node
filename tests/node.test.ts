@@ -658,6 +658,10 @@ describe("Node adapter", () => {
     const emitter = new EventEmitter();
     const chunks: string[] = [];
     let ended = false;
+    let signalFirstWrite!: () => void;
+    const firstWrite = new Promise<void>((resolve) => {
+      signalFirstWrite = resolve;
+    });
     const target = Object.assign(emitter, {
       statusCode: 0,
       statusMessage: "",
@@ -665,7 +669,7 @@ describe("Node adapter", () => {
       write(chunk: Uint8Array) {
         chunks.push(Buffer.from(chunk).toString());
         if (chunks.length === 1) {
-          setTimeout(() => emitter.emit("drain"), 0);
+          signalFirstWrite();
           return false;
         }
         return true;
@@ -686,7 +690,12 @@ describe("Node adapter", () => {
         },
       }),
     );
-    await writeNodeResponse(response, target as unknown as ServerResponse, "GET");
+    const writing = writeNodeResponse(response, target as unknown as ServerResponse, "GET");
+    await firstWrite;
+    expect(chunks).toEqual(["one"]);
+    expect(ended).toBe(false);
+    emitter.emit("drain");
+    await writing;
     expect(chunks).toEqual(["one", "two"]);
     expect(ended).toBe(true);
   });
