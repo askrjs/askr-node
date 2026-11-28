@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.5.1 - 2026-11-28
+
+### Tests
+
+- Verify pending Node response writes wait for drain.
+
 ## 0.5.0 - 2026-10-10
 
 ### Breaking changes
